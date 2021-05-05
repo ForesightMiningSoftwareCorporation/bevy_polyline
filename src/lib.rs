@@ -5,7 +5,7 @@ use std::sync::Arc;
 use bevy::{
     core::AsBytes,
     ecs::{reflect::ReflectComponent, world::WorldCell},
-    math::Vec3,
+    math::{Mat4, Vec3},
     prelude::{
         Assets, ClearColor, GlobalTransform, Handle, HandleUntyped, Shader, Transform, World,
     },
@@ -14,8 +14,8 @@ use bevy::{
         camera::ActiveCameras,
         pass::{LoadOp, PassDescriptor, TextureAttachment},
         pipeline::{
-            BindGroupDescriptorId, IndexFormat, PipelineCompiler, PipelineDescriptor,
-            PipelineSpecialization, VertexAttribute, VertexFormat,
+            BindGroupDescriptorId, IndexFormat, InputStepMode, PipelineCompiler,
+            PipelineDescriptor, PipelineSpecialization, VertexAttribute, VertexFormat,
         },
         render_graph::{base, Node, ResourceSlotInfo},
         renderer::{
@@ -76,6 +76,7 @@ struct SetBindGroupCommand {
 pub struct PolyLineNode {
     vertex_buffer_id: Option<BufferId>,
     index_buffer_id: Option<BufferId>,
+    instance_buffer_id: Option<BufferId>,
     pass_descriptor: PassDescriptor,
     inputs: Vec<ResourceSlotInfo>,
     color_attachment_input_indices: Vec<Option<usize>>,
@@ -127,6 +128,7 @@ impl PolyLineNode {
         Self {
             vertex_buffer_id: None,
             index_buffer_id: None,
+            instance_buffer_id: None,
             pass_descriptor,
             inputs,
             color_attachment_input_indices,
@@ -165,15 +167,48 @@ impl PolyLineNode {
             // use the sample count specified in the pass descriptor
             sample_count: self.pass_descriptor.sample_count,
             // Manually set vertex buffer layout
-            vertex_buffer_layout: VertexBufferLayout::new_from_attribute(
-                VertexAttribute {
+            vertex_buffer_layout: VertexBufferLayout {
+                name: "PolyLine".into(),
+                stride: 12,
+                step_mode: InputStepMode::Vertex,
+                attributes: vec![VertexAttribute {
                     name: "Vertex_Position".into(),
                     format: VertexFormat::Float32x3,
                     offset: 0,
                     shader_location: 0,
-                },
-                bevy::render::pipeline::InputStepMode::Vertex,
-            ),
+                }],
+            },
+            instance_buffer_layout: VertexBufferLayout {
+                name: "PolyLine".into(),
+                stride: 64,
+                step_mode: InputStepMode::Instance,
+                attributes: vec![
+                    VertexAttribute {
+                        name: "Instance_Model1".into(),
+                        format: VertexFormat::Float32x4,
+                        offset: 0,
+                        shader_location: 1,
+                    },
+                    VertexAttribute {
+                        name: "Instance_Model2".into(),
+                        format: VertexFormat::Float32x4,
+                        offset: 16,
+                        shader_location: 2,
+                    },
+                    VertexAttribute {
+                        name: "Instance_Model3".into(),
+                        format: VertexFormat::Float32x4,
+                        offset: 32,
+                        shader_location: 3,
+                    },
+                    VertexAttribute {
+                        name: "Instance_Model4".into(),
+                        format: VertexFormat::Float32x4,
+                        offset: 48,
+                        shader_location: 4,
+                    },
+                ],
+            },
             ..Default::default()
         };
 
@@ -241,7 +276,7 @@ impl Node for PolyLineNode {
                     BufferInfo {
                         size: 48,
                         buffer_usage: BufferUsage::VERTEX | BufferUsage::COPY_DST,
-                        mapped_at_creation: true,
+                        mapped_at_creation: false,
                     },
                     &[
                         [0.0, -0.5, 0f32],
@@ -260,10 +295,27 @@ impl Node for PolyLineNode {
                     BufferInfo {
                         size: 12,
                         buffer_usage: BufferUsage::INDEX | BufferUsage::COPY_DST,
-                        mapped_at_creation: true,
+                        mapped_at_creation: false,
                     },
                     &[0u16, 1, 2, 3, 4, 5].as_bytes(),
                 ));
+
+            self.instance_buffer_id.replace(
+                render_resource_context.create_buffer_with_data(
+                    BufferInfo {
+                        size: 32,
+                        buffer_usage: BufferUsage::VERTEX | BufferUsage::COPY_DST,
+                        mapped_at_creation: false,
+                    },
+                    &[
+                        Mat4::IDENTITY.to_cols_array(),
+                        Transform::from_xyz(1., 0., 0.)
+                            .compute_matrix()
+                            .to_cols_array(),
+                    ]
+                    .as_bytes(),
+                ),
+            );
         }
 
         if self.specialized_pipeline_handle.is_none() {
@@ -365,8 +417,9 @@ impl Node for PolyLineNode {
                     );
                 });
                 render_pass.set_vertex_buffer(0, self.vertex_buffer_id.unwrap(), 0);
+                render_pass.set_vertex_buffer(1, self.instance_buffer_id.unwrap(), 0);
                 render_pass.set_index_buffer(self.index_buffer_id.unwrap(), 0, IndexFormat::Uint16);
-                render_pass.draw_indexed(0..6, 0, 0..1);
+                render_pass.draw_indexed(0..6, 0, 0..2);
             },
         );
     }
