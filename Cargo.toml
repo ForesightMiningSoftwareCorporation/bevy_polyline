@@ -1,0 +1,15 @@
+[package]
+name = "bevy_poly_line"
+version = "0.1.0"
+edition = "2018"
+
+[[example]]
+name = "linestrip"
+path = "examples/linestrip.rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[dependencies]
+bevy = { version = "0.5.0" }
+
+[patch.crates-io]
+bevy = { path = "../bevy" }
