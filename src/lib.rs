@@ -48,7 +48,6 @@ impl Plugin for PolyLinePlugin {
             POLY_LINE_PIPELINE_HANDLE,
             pipeline::build_poly_line_pipeline(&mut shaders),
         );
-        dbg!(pipelines.get(&POLY_LINE_PIPELINE_HANDLE));
     }
 }
 
@@ -165,6 +164,7 @@ impl PolyLineNode {
         let pipeline_specialization = PipelineSpecialization {
             // use the sample count specified in the pass descriptor
             sample_count: self.pass_descriptor.sample_count,
+            // Manually set vertex buffer layout
             vertex_buffer_layout: VertexBufferLayout::new_from_attribute(
                 VertexAttribute {
                     name: "Vertex_Position".into(),
@@ -209,16 +209,12 @@ fn update_bind_groups(
     render_resource_context: &dyn RenderResourceContext,
     set_bind_group_commands: &mut Vec<SetBindGroupCommand>,
 ) {
-    dbg!(&render_resource_bindings);
-
     // Try to set up the bind group for each descriptor in the pipeline layout
     // Some will be set up later, during update
     for bind_group_descriptor in &pipeline_descriptor.layout.as_ref().unwrap().bind_groups {
-        dbg!(bind_group_descriptor);
         if let Some(bind_group) = render_resource_bindings
             .update_bind_group(bind_group_descriptor, render_resource_context)
         {
-            dbg!(bind_group);
             set_bind_group_commands.push(SetBindGroupCommand {
                 index: bind_group_descriptor.index,
                 descriptor_id: bind_group_descriptor.id,
@@ -297,7 +293,6 @@ impl Node for PolyLineNode {
                 .bindings
                 .update_bind_group(bind_group_descriptor, &**render_resource_context)
             {
-                dbg!(&bind_group);
                 self.bind_groups.push(SetBindGroupCommand {
                     index: bind_group_descriptor.index,
                     descriptor_id: bind_group_descriptor.id,
