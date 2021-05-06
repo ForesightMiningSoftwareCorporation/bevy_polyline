@@ -424,16 +424,3 @@ impl Node for PolyLineNode {
         );
     }
 }
-
-// fn draw_poly_lines_system(
-//     mut draw_context: DrawContext,
-//     msaa: Res<Msaa>,
-//     query: Query<(&mut Draw, &PolyLine, &Visible)>,
-// ) {
-//     query.for_each_mut(|(mut draw, poly_line, visible)| {
-//         draw.set_pipeline(&POLY_LINE_PIPELINE_HANDLE.typed());
-//         // draw.set_vertex_buffer(slot, buffer, offset);
-//         // draw.set_index_buffer(buffer, offset, index_format);
-//         // draw.draw_indexed(indices, base_vertex, instances);
-//     });
-// }
