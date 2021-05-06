@@ -168,32 +168,44 @@ impl PolyLineNode {
             // Manually set vertex buffer layout
             vertex_buffer_layout: VertexBufferLayout {
                 name: "PolyLine".into(),
-                stride: 64,
+                stride: 76,
                 step_mode: InputStepMode::Instance,
                 attributes: vec![
                     VertexAttribute {
+                        name: "Instance_Point0".into(),
+                        format: VertexFormat::Float32x3,
+                        offset: 0,
+                        shader_location: 0,
+                    },
+                    VertexAttribute {
                         name: "Instance_Model1".into(),
                         format: VertexFormat::Float32x4,
-                        offset: 0,
+                        offset: 12,
                         shader_location: 1,
                     },
                     VertexAttribute {
                         name: "Instance_Model2".into(),
                         format: VertexFormat::Float32x4,
-                        offset: 16,
+                        offset: 28,
                         shader_location: 2,
                     },
                     VertexAttribute {
                         name: "Instance_Model3".into(),
                         format: VertexFormat::Float32x4,
-                        offset: 32,
+                        offset: 44,
                         shader_location: 3,
                     },
                     VertexAttribute {
                         name: "Instance_Model4".into(),
                         format: VertexFormat::Float32x4,
-                        offset: 48,
+                        offset: 60,
                         shader_location: 4,
+                    },
+                    VertexAttribute {
+                        name: "Instance_Point1".into(),
+                        format: VertexFormat::Float32x3,
+                        offset: 76,
+                        shader_location: 5,
                     },
                 ],
             },
@@ -285,17 +297,18 @@ impl Node for PolyLineNode {
             self.instance_buffer_id.replace(
                 render_resource_context.create_buffer_with_data(
                     BufferInfo {
-                        size: 32,
+                        size: 164,
                         buffer_usage: BufferUsage::VERTEX | BufferUsage::COPY_DST,
                         mapped_at_creation: false,
                     },
                     &[
-                        Mat4::IDENTITY.to_cols_array(),
-                        Transform::from_xyz(1., 0., 0.)
-                            .compute_matrix()
-                            .to_cols_array(),
+                        Vec3::new(0.0, 0.0, 0.0).as_bytes(),
+                        Mat4::IDENTITY.to_cols_array().as_bytes(),
+                        Vec3::new(1.0, 0.0, 0.0).as_bytes(),
+                        Mat4::IDENTITY.to_cols_array().as_bytes(),
+                        Vec3::new(2.0, 0.0, 0.0).as_bytes(),
                     ]
-                    .as_bytes(),
+                    .concat(),
                 ),
             );
         }
