@@ -13,3 +13,6 @@ bevy = { version = "0.5.0" }
 
 [patch.crates-io]
 bevy = { path = "../bevy" }
+# wgpu = { path = "../wgpu-rs/" }
+# wgpu-types = { path = "../wgpu/wgpu-types" }
+# wgpu-core = { path = "../wgpu/wgpu-core" }

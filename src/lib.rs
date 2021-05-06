@@ -32,6 +32,9 @@ use bevy::{
 pub const POLY_LINE_PIPELINE_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 0x6e339e9dad279849);
 
+pub const INSTANCED_POLY_LINE_PIPELINE_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 0x6e339e9dad279498);
+
 pub struct PolyLinePlugin {}
 
 impl Plugin for PolyLinePlugin {
@@ -74,8 +77,6 @@ struct SetBindGroupCommand {
 }
 
 pub struct PolyLineNode {
-    vertex_buffer_id: Option<BufferId>,
-    index_buffer_id: Option<BufferId>,
     instance_buffer_id: Option<BufferId>,
     pass_descriptor: PassDescriptor,
     inputs: Vec<ResourceSlotInfo>,
@@ -126,8 +127,6 @@ impl PolyLineNode {
         }
 
         Self {
-            vertex_buffer_id: None,
-            index_buffer_id: None,
             instance_buffer_id: None,
             pass_descriptor,
             inputs,
@@ -168,17 +167,6 @@ impl PolyLineNode {
             sample_count: self.pass_descriptor.sample_count,
             // Manually set vertex buffer layout
             vertex_buffer_layout: VertexBufferLayout {
-                name: "PolyLine".into(),
-                stride: 12,
-                step_mode: InputStepMode::Vertex,
-                attributes: vec![VertexAttribute {
-                    name: "Vertex_Position".into(),
-                    format: VertexFormat::Float32x3,
-                    offset: 0,
-                    shader_location: 0,
-                }],
-            },
-            instance_buffer_layout: VertexBufferLayout {
                 name: "PolyLine".into(),
                 stride: 64,
                 step_mode: InputStepMode::Instance,
@@ -226,14 +214,35 @@ impl PolyLineNode {
             )
         };
 
-        render_resource_context.create_render_pipeline(
-            specialized_pipeline_handle.clone(),
-            &pipeline_descriptor,
-            &*shaders,
-        );
+        // TODO get rid of workaround
+        // Or do a full 'compile_instanced_pipeline' function
+        let specialized_pipeline_descriptor = {
+            let specialized_pipeline_descriptor = pipeline_descriptors
+                .get_mut(&specialized_pipeline_handle)
+                .unwrap();
+            specialized_pipeline_descriptor
+                .get_layout_mut()
+                .unwrap()
+                .vertex_buffer_descriptors
+                .get_mut(0)
+                .unwrap()
+                .step_mode = InputStepMode::Instance;
 
+            render_resource_context.create_render_pipeline(
+                INSTANCED_POLY_LINE_PIPELINE_HANDLE.typed(),
+                &specialized_pipeline_descriptor,
+                &*shaders,
+            );
+
+            specialized_pipeline_descriptor.clone()
+        };
+
+        pipeline_descriptors.set_untracked(
+            INSTANCED_POLY_LINE_PIPELINE_HANDLE,
+            specialized_pipeline_descriptor,
+        );
         self.specialized_pipeline_handle
-            .replace(specialized_pipeline_handle);
+            .replace(INSTANCED_POLY_LINE_PIPELINE_HANDLE.typed());
     }
 }
 
@@ -266,39 +275,12 @@ impl Node for PolyLineNode {
     }
 
     fn prepare(&mut self, world: &mut World) {
-        if self.vertex_buffer_id.is_none() {
+        self.bind_groups.clear();
+
+        if self.instance_buffer_id.is_none() {
             let render_resource_context = world
                 .get_resource_mut::<Box<dyn RenderResourceContext>>()
                 .unwrap();
-
-            self.vertex_buffer_id.replace(
-                render_resource_context.create_buffer_with_data(
-                    BufferInfo {
-                        size: 48,
-                        buffer_usage: BufferUsage::VERTEX | BufferUsage::COPY_DST,
-                        mapped_at_creation: false,
-                    },
-                    &[
-                        [0.0, -0.5, 0f32],
-                        [1.0, -0.5, 0f32],
-                        [1.0, 0.5, 0f32],
-                        [0.0, -0.5, 0f32],
-                        [1.0, 0.5, 0f32],
-                        [0.0, 0.5, 0f32],
-                    ]
-                    .as_bytes(),
-                ),
-            );
-
-            self.index_buffer_id
-                .replace(render_resource_context.create_buffer_with_data(
-                    BufferInfo {
-                        size: 12,
-                        buffer_usage: BufferUsage::INDEX | BufferUsage::COPY_DST,
-                        mapped_at_creation: false,
-                    },
-                    &[0u16, 1, 2, 3, 4, 5].as_bytes(),
-                ));
 
             self.instance_buffer_id.replace(
                 render_resource_context.create_buffer_with_data(
@@ -416,10 +398,8 @@ impl Node for PolyLineNode {
                         command.dynamic_uniform_indices.as_deref(),
                     );
                 });
-                render_pass.set_vertex_buffer(0, self.vertex_buffer_id.unwrap(), 0);
-                render_pass.set_vertex_buffer(1, self.instance_buffer_id.unwrap(), 0);
-                render_pass.set_index_buffer(self.index_buffer_id.unwrap(), 0, IndexFormat::Uint16);
-                render_pass.draw_indexed(0..6, 0, 0..2);
+                render_pass.set_vertex_buffer(0, self.instance_buffer_id.unwrap(), 0);
+                render_pass.draw(0..6, 0..2);
             },
         );
     }
