@@ -29,6 +29,7 @@ void main() {
 
     vec3 position = positions[gl_VertexIndex];
 
+    // algorithm based on https://wwwtyro.net/2019/11/18/instanced-lines.html
     vec4 clip0 = ViewProj * Model * vec4(Instance_Point0, 1);
     vec4 clip1 = ViewProj * Model * vec4(Instance_Point1, 1);
 
