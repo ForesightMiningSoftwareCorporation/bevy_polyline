@@ -273,17 +273,19 @@ impl Node for PolyLineNode {
             self.instance_buffer_id.replace(
                 render_resource_context.create_buffer_with_data(
                     BufferInfo {
-                        size: 72,
+                        size: 96,
                         buffer_usage: BufferUsage::VERTEX | BufferUsage::COPY_DST,
                         mapped_at_creation: false,
                     },
                     &[
-                        Vec3::new(0.0, 0.0, 0.0).as_bytes(),
-                        Vec3::new(1.0, 1.0, 0.0).as_bytes(),
-                        Vec3::new(2.0, 0.0, 0.0).as_bytes(),
-                        Vec3::new(3.0, 1.0, 0.0).as_bytes(),
-                        Vec3::new(4.0, 0.0, 0.0).as_bytes(),
-                        Vec3::new(5.0, 1.0, 0.0).as_bytes(),
+                        Vec3::new(-0.5, 0.0, -0.5).as_bytes(),
+                        Vec3::new(0.5, 0.0, -0.5).as_bytes(),
+                        Vec3::new(0.5, 1.0, -0.5).as_bytes(),
+                        Vec3::new(-0.5, 1.0, -0.5).as_bytes(),
+                        Vec3::new(-0.5, 1.0, 0.5).as_bytes(),
+                        Vec3::new(0.5, 1.0, 0.5).as_bytes(),
+                        Vec3::new(0.5, 0.0, 0.5).as_bytes(),
+                        Vec3::new(-0.5, 0.0, 0.5).as_bytes(),
                     ]
                     .concat(),
                 ),
@@ -389,7 +391,7 @@ impl Node for PolyLineNode {
                     );
                 });
                 render_pass.set_vertex_buffer(0, self.instance_buffer_id.unwrap(), 0);
-                render_pass.draw(0..6, 0..5);
+                render_pass.draw(0..6, 0..8);
             },
         );
     }

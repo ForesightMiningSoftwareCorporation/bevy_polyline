@@ -16,7 +16,7 @@ void main() {
     );
 
     // TODO uniforms
-    float width = 10.0;
+    float width = 5.0;
     vec2 resolution = vec2(1280,720);
 
     vec3[] positions = {
@@ -46,5 +46,6 @@ void main() {
 
     vec4 clip = mix(clip0, clip1, position.z);
 
+    gl_Position = vec4(clip.w * ((2.0 * pt) / resolution - 1.0), clip.z, clip.w);
     gl_Position = vec4(clip.w * ((2.0 * pt) / resolution - 1.0), clip.z, clip.w);
 }
