@@ -1,18 +1,19 @@
 #version 450
 
 layout(location = 0) in vec3 Instance_Point0;
-layout(location = 1) in vec4 Instance_Model1;
-layout(location = 2) in vec4 Instance_Model2;
-layout(location = 3) in vec4 Instance_Model3;
-layout(location = 4) in vec4 Instance_Model4;
-layout(location = 5) in vec3 Instance_Point1;
+layout(location = 2) in vec3 Instance_Point1;
 
 layout(set = 0, binding = 0) uniform CameraViewProj {
     mat4 ViewProj;
 };
 
 void main() {
-    mat4 Model = mat4(Instance_Model1, Instance_Model2, Instance_Model3, Instance_Model4);
+    mat4 Model = mat4(
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0
+    );
 
     // TODO uniforms
     float width = 10.0;
@@ -20,10 +21,10 @@ void main() {
 
     vec3[] positions = {
         {0.0, -0.5, 0.0},
-        {1.0, -0.5, 0.0},
-        {1.0, 0.5, 0.0},
+        {0.0, -0.5, 1.0},
+        {0.0, 0.5, 1.0},
         {0.0, -0.5, 0.0},
-        {1.0, 0.5, 0.0},
+        {0.0, 0.5, 1.0},
         {0.0, 0.5, 0.0}
     };
 
