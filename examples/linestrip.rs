@@ -31,6 +31,7 @@ fn setup(
                 Vec3::new(0.5, 0.0, 0.5),
                 Vec3::new(-0.5, 0.0, 0.5),
             ],
+            ..Default::default()
         },
         material: poly_line_materials.add(PolyLineMaterial {
             width: 1.0,

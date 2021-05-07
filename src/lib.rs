@@ -177,9 +177,14 @@ fn poly_line_draw_render_pipelines_system(
                 .set_vertex_buffers_from_bindings(&mut draw, &[&render_pipelines.bindings])
                 .unwrap();
 
-            // TODO line list
-            // for line strip
-            draw.draw(0..6, 0..(poly_line.vertices.len() - 1) as u32)
+            match poly_line.style {
+                PolyLineStyle::LineStrip { join, cap } => {
+                    draw.draw(0..6, 0..(poly_line.vertices.len() - 1) as u32)
+                }
+                PolyLineStyle::LineList { cap } => {
+                    draw.draw(0..6, 0..(poly_line.vertices.len() / 2) as u32)
+                }
+            }
         }
     }
 }
@@ -213,10 +218,54 @@ pub fn poly_line_resource_provider_system(
     });
 }
 
+#[derive(Copy, Clone, Debug, Reflect)]
+pub enum PolyLineJoinStyle {
+    None,
+    Miter,
+}
+
+impl Default for PolyLineJoinStyle {
+    fn default() -> Self {
+        Self::Miter
+    }
+}
+
+#[derive(Copy, Clone, Debug, Reflect)]
+pub enum PolyLineCapStyle {
+    Butt,
+}
+
+impl Default for PolyLineCapStyle {
+    fn default() -> Self {
+        Self::Butt
+    }
+}
+
+#[derive(Copy, Clone, Debug, Reflect)]
+pub enum PolyLineStyle {
+    LineStrip {
+        join: PolyLineJoinStyle,
+        cap: PolyLineCapStyle,
+    },
+    LineList {
+        cap: PolyLineCapStyle,
+    },
+}
+
+impl Default for PolyLineStyle {
+    fn default() -> Self {
+        Self::LineStrip {
+            join: Default::default(),
+            cap: Default::default(),
+        }
+    }
+}
+
 #[derive(Default, Reflect)]
 #[reflect(Component)]
 pub struct PolyLine {
     pub vertices: Vec<Vec3>,
+    pub style: PolyLineStyle,
 }
 
 #[derive(Reflect, RenderResources, TypeUuid)]
