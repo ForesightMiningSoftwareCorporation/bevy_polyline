@@ -112,7 +112,10 @@ fn poly_line_draw_render_pipelines_system(
             // Needed to pass compiler check for all vertex buffer attibutes
             render_pipeline.specialization.vertex_buffer_layout = VertexBufferLayout {
                 name: "PolyLine".into(),
-                stride: 12,
+                stride: match poly_line.style {
+                    PolyLineStyle::LineStrip { .. } => 12,
+                    PolyLineStyle::LineList { .. } => 24,
+                },
                 // But this field is overwritten
                 step_mode: InputStepMode::Instance,
                 attributes: vec![
@@ -178,10 +181,16 @@ fn poly_line_draw_render_pipelines_system(
                 .unwrap();
 
             match poly_line.style {
-                PolyLineStyle::LineStrip { join, cap } => {
+                PolyLineStyle::LineStrip {
+                    join_style,
+                    cap_style,
+                } => {
+                    // TODO can be done in one draw call and 4 triangles for the miter case
+                    // if we change index buffer stride to 4 points (p-1, p0, p1 and p2) instead of just p0, p1
+                    // and pad the buffer at start/end with a copy of the first/last point or a point along the x-basis
                     draw.draw(0..6, 0..(poly_line.vertices.len() - 1) as u32)
                 }
-                PolyLineStyle::LineList { cap } => {
+                PolyLineStyle::LineList { cap_style } => {
                     draw.draw(0..6, 0..(poly_line.vertices.len() / 2) as u32)
                 }
             }
@@ -244,19 +253,19 @@ impl Default for PolyLineCapStyle {
 #[derive(Copy, Clone, Debug, Reflect)]
 pub enum PolyLineStyle {
     LineStrip {
-        join: PolyLineJoinStyle,
-        cap: PolyLineCapStyle,
+        join_style: PolyLineJoinStyle,
+        cap_style: PolyLineCapStyle,
     },
     LineList {
-        cap: PolyLineCapStyle,
+        cap_style: PolyLineCapStyle,
     },
 }
 
 impl Default for PolyLineStyle {
     fn default() -> Self {
         Self::LineStrip {
-            join: Default::default(),
-            cap: Default::default(),
+            join_style: Default::default(),
+            cap_style: Default::default(),
         }
     }
 }
