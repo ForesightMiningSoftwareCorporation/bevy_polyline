@@ -1,4 +1,3 @@
-use bevy::prelude::{Bundle, Plugin, Visible};
 use bevy::{
     core::{AsBytes, Bytes},
     ecs::{reflect::ReflectComponent, system::IntoSystem},
@@ -18,10 +17,15 @@ use bevy::{
         renderer::{
             BufferInfo, BufferUsage, RenderResourceBindings, RenderResourceContext, RenderResources,
         },
+        shader::ShaderDefs,
         RenderStage,
     },
     utils::HashSet,
     window::{WindowResized, Windows},
+};
+use bevy::{
+    prelude::{Bundle, CoreStage, Plugin, Visible},
+    render::shader,
 };
 
 mod global_render_resources_node;
@@ -41,6 +45,10 @@ impl Plugin for PolyLinePlugin {
         app.add_asset::<PolyLineMaterial>()
             .register_type::<PolyLine>()
             .insert_resource(GlobalResources::default())
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                shader::asset_shader_defs_system::<PolyLineMaterial>.system(),
+            )
             .add_system_to_stage(
                 RenderStage::RenderResource,
                 poly_line_resource_provider_system.system(),
@@ -192,12 +200,15 @@ pub struct PolyLine {
     pub vertices: Vec<Vec3>,
 }
 
-#[derive(Reflect, RenderResources, TypeUuid)]
+#[derive(Reflect, RenderResources, ShaderDefs, TypeUuid)]
 #[reflect(Component)]
 #[uuid = "0be0c53f-05c9-40d4-ac1d-b56e072e33f8"]
 pub struct PolyLineMaterial {
     pub width: f32,
     pub color: Color,
+    #[render_resources(ignore)]
+    #[shader_def]
+    pub perspective: bool,
 }
 
 impl Default for PolyLineMaterial {
@@ -205,6 +216,7 @@ impl Default for PolyLineMaterial {
         Self {
             width: 10.0,
             color: Color::WHITE,
+            perspective: false,
         }
     }
 }

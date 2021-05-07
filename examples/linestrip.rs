@@ -36,6 +36,7 @@ fn setup(
         material: poly_line_materials.add(PolyLineMaterial {
             width: 5.0,
             color: Color::RED,
+            perspective: true,
         }),
         ..Default::default()
     });
