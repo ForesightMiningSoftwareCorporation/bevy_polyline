@@ -1,32 +1,23 @@
 mod pipeline;
 
-use std::sync::Arc;
-
 use bevy::{
     core::{AsBytes, Bytes},
-    ecs::{reflect::ReflectComponent, system::IntoSystem, world::WorldCell},
-    math::{Mat4, Vec3},
+    ecs::{reflect::ReflectComponent, system::IntoSystem},
+    math::Vec3,
     prelude::{
-        Assets, Changed, ClearColor, Commands, Draw, Entity, GlobalTransform, Handle,
-        HandleUntyped, Msaa, Query, QuerySet, RenderPipelines, Res, ResMut, Shader, Transform,
-        With, Without, World,
+        AddAsset, Assets, Changed, Color, Draw, GlobalTransform, Handle, HandleUntyped, Msaa,
+        Query, RenderPipelines, Res, ResMut, Shader, Transform, Without,
     },
     reflect::{Reflect, TypeUuid},
     render::{
-        camera::ActiveCameras,
         draw::{DrawContext, OutsideFrustum},
-        pass::{LoadOp, PassDescriptor, TextureAttachment},
-        pipeline::{
-            BindGroupDescriptorId, IndexFormat, InputStepMode, PipelineCompiler,
-            PipelineDescriptor, PipelineSpecialization, VertexAttribute, VertexFormat,
-        },
+        pipeline::{InputStepMode, PipelineDescriptor, VertexAttribute, VertexFormat},
         render_graph::{
             base::{self, MainPass},
-            Node, ResourceSlotInfo,
+            AssetRenderResourcesNode, RenderGraph,
         },
         renderer::{
-            BindGroupId, BufferId, BufferInfo, BufferUsage, RenderResourceBindings,
-            RenderResourceContext, RenderResourceType,
+            BufferInfo, BufferUsage, RenderResourceBindings, RenderResourceContext, RenderResources,
         },
         RenderStage,
     },
@@ -36,6 +27,10 @@ use bevy::{
     prelude::{Bundle, Plugin, Visible},
     render::pipeline::VertexBufferLayout,
 };
+
+pub mod node {
+    pub const POLY_LINE_MATERIAL_NODE: &str = "poly_line_material_node";
+}
 
 pub const POLY_LINE_PIPELINE_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 0x6e339e9dad279849);
@@ -47,8 +42,8 @@ pub struct PolyLinePlugin;
 
 impl Plugin for PolyLinePlugin {
     fn build(&self, app: &mut bevy::prelude::AppBuilder) {
-        app.register_type::<PolyLine>()
-            // .add_startup_system(setup_specialized_pipeline.system())
+        app.add_asset::<PolyLineMaterial>()
+            .register_type::<PolyLine>()
             .add_system_to_stage(
                 RenderStage::RenderResource,
                 poly_line_resource_provider_system.system(),
@@ -68,6 +63,15 @@ impl Plugin for PolyLinePlugin {
             POLY_LINE_PIPELINE_HANDLE,
             pipeline::build_poly_line_pipeline(&mut shaders),
         );
+
+        // Setup rendergraph addition
+        let mut render_graph = world.get_resource_mut::<RenderGraph>().unwrap();
+
+        let material_node = AssetRenderResourcesNode::<PolyLineMaterial>::new(true);
+        render_graph.add_system_node(node::POLY_LINE_MATERIAL_NODE, material_node);
+        render_graph
+            .add_node_edge(node::POLY_LINE_MATERIAL_NODE, base::node::MAIN_PASS)
+            .unwrap();
     }
 }
 
@@ -169,12 +173,12 @@ fn poly_line_draw_render_pipelines_system(
 
 pub fn poly_line_resource_provider_system(
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
-    mut query: Query<(Entity, &PolyLine, &mut RenderPipelines), Changed<PolyLine>>,
+    mut query: Query<(&PolyLine, &mut RenderPipelines), Changed<PolyLine>>,
 ) {
     // let mut changed_meshes = HashSet::default();
     let render_resource_context = &**render_resource_context;
 
-    query.for_each_mut(|(entity, poly_line, mut render_pipelines)| {
+    query.for_each_mut(|(poly_line, mut render_pipelines)| {
         // remove previous buffer
         if let Some(buffer_id) = render_pipelines.bindings.vertex_attribute_buffer {
             render_resource_context.remove_buffer(buffer_id);
@@ -202,13 +206,26 @@ pub struct PolyLine {
     pub vertices: Vec<Vec3>,
 }
 
-#[derive(Default, Reflect)]
+#[derive(Reflect, RenderResources, TypeUuid)]
 #[reflect(Component)]
-pub struct PolyLineMaterial {}
+#[uuid = "0be0c53f-05c9-40d4-ac1d-b56e072e33f8"]
+pub struct PolyLineMaterial {
+    pub width: f32,
+    pub color: Color,
+}
+
+impl Default for PolyLineMaterial {
+    fn default() -> Self {
+        Self {
+            width: 10.0,
+            color: Color::WHITE,
+        }
+    }
+}
 
 #[derive(Bundle)]
 pub struct PolyLineBundle {
-    pub material: PolyLineMaterial,
+    pub material: Handle<PolyLineMaterial>,
     pub poly_line: PolyLine,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
@@ -221,12 +238,12 @@ pub struct PolyLineBundle {
 impl Default for PolyLineBundle {
     fn default() -> Self {
         Self {
-            material: PolyLineMaterial {},
-            poly_line: PolyLine::default(),
-            transform: Transform::default(),
-            global_transform: GlobalTransform::default(),
-            visible: Visible::default(),
-            draw: Draw::default(),
+            material: Default::default(),
+            poly_line: Default::default(),
+            transform: Default::default(),
+            global_transform: Default::default(),
+            visible: Default::default(),
+            draw: Default::default(),
             render_pipelines: RenderPipelines::from_handles(vec![
                 &POLY_LINE_PIPELINE_HANDLE.typed()
             ]),

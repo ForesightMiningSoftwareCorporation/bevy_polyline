@@ -7,16 +7,16 @@ layout(set = 0, binding = 0) uniform CameraViewProj {
     mat4 ViewProj;
 };
 
-void main() {
-    mat4 Model = mat4(
-        1.0, 0.0, 0.0, 0.0,
-        0.0, 1.0, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        0.0, 0.0, 0.0, 1.0
-    );
+layout(set = 1, binding = 0) uniform Transform {
+    mat4 Model;
+};
 
+layout(set = 2, binding = 0) uniform PolyLineMaterial_width {
+    float width;
+};
+
+void main() {
     // TODO uniforms
-    float width = 5.0;
     vec2 resolution = vec2(1280,720);
 
     vec3[] positions = {

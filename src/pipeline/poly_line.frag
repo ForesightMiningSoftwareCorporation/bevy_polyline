@@ -2,11 +2,10 @@
 
 layout(location = 0) out vec4 o_Target;
 
-// layout(set = 1, binding = 0) uniform PolyLineMaterial_color {
-//     vec4 color;
-// };
+layout(set = 2, binding = 1) uniform PolyLineMaterial_color {
+    vec4 color;
+};
 
 void main() {
-    // o_Target = color;
-    o_Target = vec4(1.0);
+    o_Target = color;
 }
