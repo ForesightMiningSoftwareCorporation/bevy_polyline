@@ -48,5 +48,4 @@ void main() {
     vec4 clip = mix(clip0, clip1, position.z);
 
     gl_Position = vec4(clip.w * ((2.0 * pt) / resolution - 1.0), clip.z, clip.w);
-    gl_Position = vec4(clip.w * ((2.0 * pt) / resolution - 1.0), clip.z, clip.w);
 }

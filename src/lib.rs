@@ -1,15 +1,16 @@
+use bevy::prelude::{Bundle, Plugin, Visible};
 use bevy::{
     core::{AsBytes, Bytes},
     ecs::{reflect::ReflectComponent, system::IntoSystem},
     math::{Vec2, Vec3},
     prelude::{
-        AddAsset, Assets, Changed, Color, Draw, EventReader, GlobalTransform, Handle,
-        HandleUntyped, Msaa, Query, RenderPipelines, Res, ResMut, Shader, Transform, Without,
+        AddAsset, Assets, Changed, Color, Draw, EventReader, GlobalTransform, Handle, Msaa, Query,
+        RenderPipelines, Res, ResMut, Shader, Transform, Without,
     },
     reflect::{Reflect, TypeUuid},
     render::{
         draw::{DrawContext, OutsideFrustum},
-        pipeline::{InputStepMode, PipelineDescriptor, VertexAttribute, VertexFormat},
+        pipeline::PipelineDescriptor,
         render_graph::{
             base::{self, MainPass},
             AssetRenderResourcesNode, RenderGraph,
@@ -22,10 +23,6 @@ use bevy::{
     utils::HashSet,
     window::{WindowResized, Windows},
 };
-use bevy::{
-    prelude::{Bundle, Plugin, Visible},
-    render::pipeline::VertexBufferLayout,
-};
 
 mod global_render_resources_node;
 mod pipeline;
@@ -36,12 +33,6 @@ pub mod node {
     pub const POLY_LINE_MATERIAL_NODE: &str = "poly_line_material_node";
     pub const GLOBAL_RENDER_RESOURCES_NODE: &str = "global_render_resources_node";
 }
-
-pub const POLY_LINE_PIPELINE_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 0x6e339e9dad279849);
-
-pub const INSTANCED_POLY_LINE_PIPELINE_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 0x6e339e9dad279498);
 
 pub struct PolyLinePlugin;
 
@@ -66,10 +57,7 @@ impl Plugin for PolyLinePlugin {
         let mut pipelines = world
             .get_resource_mut::<Assets<PipelineDescriptor>>()
             .unwrap();
-        pipelines.set_untracked(
-            POLY_LINE_PIPELINE_HANDLE,
-            pipeline::build_poly_line_pipeline(&mut shaders),
-        );
+        pipeline::build_pipelines(&mut *shaders, &mut *pipelines);
 
         // Setup rendergraph addition
         let mut render_graph = world.get_resource_mut::<RenderGraph>().unwrap();
@@ -107,32 +95,6 @@ fn poly_line_draw_render_pipelines_system(
         let render_pipelines = &mut *render_pipelines;
         for render_pipeline in render_pipelines.pipelines.iter_mut() {
             render_pipeline.specialization.sample_count = msaa.samples;
-
-            // TODO Consider moving to build_poly_line_pipeline
-            // Needed to pass compiler check for all vertex buffer attibutes
-            render_pipeline.specialization.vertex_buffer_layout = VertexBufferLayout {
-                name: "PolyLine".into(),
-                stride: match poly_line.style {
-                    PolyLineStyle::LineStrip { .. } => 12,
-                    PolyLineStyle::LineList { .. } => 24,
-                },
-                // But this field is overwritten
-                step_mode: InputStepMode::Instance,
-                attributes: vec![
-                    VertexAttribute {
-                        name: "Instance_Point0".into(),
-                        format: VertexFormat::Float32x3,
-                        offset: 0,
-                        shader_location: 0,
-                    },
-                    VertexAttribute {
-                        name: "Instance_Point1".into(),
-                        format: VertexFormat::Float32x3,
-                        offset: 12,
-                        shader_location: 1,
-                    },
-                ],
-            };
 
             if render_pipeline.dynamic_bindings_generation
                 != render_pipelines.bindings.dynamic_bindings_generation()
@@ -180,20 +142,17 @@ fn poly_line_draw_render_pipelines_system(
                 .set_vertex_buffers_from_bindings(&mut draw, &[&render_pipelines.bindings])
                 .unwrap();
 
-            match poly_line.style {
-                PolyLineStyle::LineStrip {
-                    join_style,
-                    cap_style,
-                } => {
-                    // TODO can be done in one draw call and 4 triangles for the miter case
-                    // if we change index buffer stride to 4 points (p-1, p0, p1 and p2) instead of just p0, p1
-                    // and pad the buffer at start/end with a copy of the first/last point or a point along the x-basis
-                    draw.draw(0..6, 0..(poly_line.vertices.len() - 1) as u32)
-                }
-                PolyLineStyle::LineList { cap_style } => {
-                    draw.draw(0..6, 0..(poly_line.vertices.len() / 2) as u32)
-                }
-            }
+            // calculate how many instances this shader needs to render
+            let num_vertices = poly_line.vertices.len() as u32;
+            let stride = render_pipeline.specialization.vertex_buffer_layout.stride as u32;
+            let num_attributes = render_pipeline
+                .specialization
+                .vertex_buffer_layout
+                .attributes
+                .len() as u32;
+            let num_instances = num_vertices / (stride / 12) - (num_attributes - 1);
+
+            draw.draw(0..6, 0..num_instances)
         }
     }
 }
@@ -227,54 +186,10 @@ pub fn poly_line_resource_provider_system(
     });
 }
 
-#[derive(Copy, Clone, Debug, Reflect)]
-pub enum PolyLineJoinStyle {
-    None,
-    Miter,
-}
-
-impl Default for PolyLineJoinStyle {
-    fn default() -> Self {
-        Self::Miter
-    }
-}
-
-#[derive(Copy, Clone, Debug, Reflect)]
-pub enum PolyLineCapStyle {
-    Butt,
-}
-
-impl Default for PolyLineCapStyle {
-    fn default() -> Self {
-        Self::Butt
-    }
-}
-
-#[derive(Copy, Clone, Debug, Reflect)]
-pub enum PolyLineStyle {
-    LineStrip {
-        join_style: PolyLineJoinStyle,
-        cap_style: PolyLineCapStyle,
-    },
-    LineList {
-        cap_style: PolyLineCapStyle,
-    },
-}
-
-impl Default for PolyLineStyle {
-    fn default() -> Self {
-        Self::LineStrip {
-            join_style: Default::default(),
-            cap_style: Default::default(),
-        }
-    }
-}
-
 #[derive(Default, Reflect)]
 #[reflect(Component)]
 pub struct PolyLine {
     pub vertices: Vec<Vec3>,
-    pub style: PolyLineStyle,
 }
 
 #[derive(Reflect, RenderResources, TypeUuid)]
@@ -315,8 +230,9 @@ impl Default for PolyLineBundle {
             global_transform: Default::default(),
             visible: Default::default(),
             draw: Default::default(),
-            render_pipelines: RenderPipelines::from_handles(vec![
-                &POLY_LINE_PIPELINE_HANDLE.typed()
+            render_pipelines: RenderPipelines::from_pipelines(vec![
+                pipeline::new_poly_line_pipeline(true),
+                pipeline::new_miter_join_pipeline(),
             ]),
             main_pass: MainPass,
         }
