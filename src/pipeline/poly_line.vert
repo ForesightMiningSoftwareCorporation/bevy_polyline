@@ -15,10 +15,11 @@ layout(set = 2, binding = 0) uniform PolyLineMaterial_width {
     float width;
 };
 
-void main() {
-    // TODO uniforms
-    vec2 resolution = vec2(1280,720);
+layout(set = 3, binding = 0) uniform GlobalResources_resolution {
+    vec2 resolution;
+};
 
+void main() {
     vec3[] positions = {
         {0.0, -0.5, 0.0},
         {0.0, -0.5, 1.0},

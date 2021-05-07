@@ -1,12 +1,10 @@
-mod pipeline;
-
 use bevy::{
     core::{AsBytes, Bytes},
     ecs::{reflect::ReflectComponent, system::IntoSystem},
-    math::Vec3,
+    math::{Vec2, Vec3},
     prelude::{
-        AddAsset, Assets, Changed, Color, Draw, GlobalTransform, Handle, HandleUntyped, Msaa,
-        Query, RenderPipelines, Res, ResMut, Shader, Transform, Without,
+        AddAsset, Assets, Changed, Color, Draw, EventReader, GlobalTransform, Handle,
+        HandleUntyped, Msaa, Query, RenderPipelines, Res, ResMut, Shader, Transform, Without,
     },
     reflect::{Reflect, TypeUuid},
     render::{
@@ -22,14 +20,21 @@ use bevy::{
         RenderStage,
     },
     utils::HashSet,
+    window::{WindowResized, Windows},
 };
 use bevy::{
     prelude::{Bundle, Plugin, Visible},
     render::pipeline::VertexBufferLayout,
 };
 
+mod global_render_resources_node;
+mod pipeline;
+
+use global_render_resources_node::GlobalRenderResourcesNode;
+
 pub mod node {
     pub const POLY_LINE_MATERIAL_NODE: &str = "poly_line_material_node";
+    pub const GLOBAL_RENDER_RESOURCES_NODE: &str = "global_render_resources_node";
 }
 
 pub const POLY_LINE_PIPELINE_HANDLE: HandleUntyped =
@@ -44,6 +49,7 @@ impl Plugin for PolyLinePlugin {
     fn build(&self, app: &mut bevy::prelude::AppBuilder) {
         app.add_asset::<PolyLineMaterial>()
             .register_type::<PolyLine>()
+            .insert_resource(GlobalResources::default())
             .add_system_to_stage(
                 RenderStage::RenderResource,
                 poly_line_resource_provider_system.system(),
@@ -51,7 +57,8 @@ impl Plugin for PolyLinePlugin {
             .add_system_to_stage(
                 RenderStage::Draw,
                 poly_line_draw_render_pipelines_system.system(),
-            );
+            )
+            .add_system(update_global_resources_system.system());
 
         // Setup pipeline
         let world = app.world_mut().cell();
@@ -72,6 +79,12 @@ impl Plugin for PolyLinePlugin {
         render_graph
             .add_node_edge(node::POLY_LINE_MATERIAL_NODE, base::node::MAIN_PASS)
             .unwrap();
+
+        let global_render_resources_node = GlobalRenderResourcesNode::<GlobalResources>::new();
+        render_graph.add_system_node(
+            node::GLOBAL_RENDER_RESOURCES_NODE,
+            global_render_resources_node,
+        );
     }
 }
 
@@ -249,5 +262,27 @@ impl Default for PolyLineBundle {
             ]),
             main_pass: MainPass,
         }
+    }
+}
+
+#[derive(Debug, Default, RenderResources)]
+struct GlobalResources {
+    pub resolution: Vec2,
+}
+
+fn update_global_resources_system(
+    windows: Res<Windows>,
+    mut global_resources: ResMut<GlobalResources>,
+    mut events: EventReader<WindowResized>,
+) {
+    if global_resources.is_added() {
+        let window = windows.get_primary().unwrap();
+        global_resources.resolution.x = window.width();
+        global_resources.resolution.y = window.height();
+    }
+
+    for event in events.iter() {
+        global_resources.resolution.x = event.width;
+        global_resources.resolution.y = event.height;
     }
 }
