@@ -52,6 +52,7 @@ void main() {
     float sigma = sign(dot(ab + cb, miter));
 
     vec2 p0 = 0.5 * width * sigma * (sigma < 0.0 ? abNorm : cbNorm);
+    // TODO improve singularity case
     vec2 p1 = 0.5 * miter * sigma * width / max(dot(miter, abNorm), 0.3);
     vec2 p2 = 0.5 * width * sigma * (sigma < 0.0 ? cbNorm : abNorm);
 
