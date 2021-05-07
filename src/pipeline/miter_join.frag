@@ -7,6 +7,5 @@ layout(set = 2, binding = 1) uniform PolyLineMaterial_color {
 };
 
 void main() {
-    // o_Target = color;
-    o_Target = vec4(vec3(0.0), 1.0);
+    o_Target = color;
 }
