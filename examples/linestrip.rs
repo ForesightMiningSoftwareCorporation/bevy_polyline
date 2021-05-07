@@ -34,7 +34,7 @@ fn setup(
             ..Default::default()
         },
         material: poly_line_materials.add(PolyLineMaterial {
-            width: 15.0,
+            width: 5.0,
             color: Color::RED,
         }),
         ..Default::default()
