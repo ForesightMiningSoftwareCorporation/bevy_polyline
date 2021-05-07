@@ -1,26 +1,18 @@
 use bevy::{
-    app::EventReader,
-    asset::{Asset, AssetEvent, Assets, Handle, HandleId},
     ecs::{
-        entity::Entity,
-        query::{Changed, Or, With},
-        system::{BoxedSystem, IntoSystem, Local, Query, QuerySet, RemovedComponents, Res, ResMut},
+        system::{BoxedSystem, IntoSystem, Local, Res, ResMut},
         world::World,
     },
     render::{
-        pipeline::RenderPipelines,
-        prelude::Visible,
         render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
         renderer::{
-            self, BufferInfo, BufferMapMode, BufferUsage, RenderContext, RenderResourceBinding,
-            RenderResourceBindings, RenderResourceContext, RenderResourceHints,
+            self, BufferInfo, BufferUsage, RenderContext, RenderResourceBinding,
+            RenderResourceBindings, RenderResourceContext,
         },
-        renderer::{AssetRenderResourceBindings, BufferId, RenderResourceType, RenderResources},
-        texture,
+        renderer::{BufferId, RenderResources},
     },
-    utils::HashMap,
 };
-use std::{any::TypeId, hash::Hash, io::Write, marker::PhantomData, ops::DerefMut};
+use std::{io::Write, marker::PhantomData};
 
 #[derive(Debug, Default)]
 pub struct GlobalRenderResourcesNode<T>
@@ -54,7 +46,6 @@ where
         _input: &ResourceSlots,
         _output: &mut ResourceSlots,
     ) {
-        // dbg!();
         self.command_queue.execute(render_context);
     }
 }
@@ -104,7 +95,6 @@ fn global_render_resources_node_system<T: RenderResources>(
     // TODO add support for textures
     // No need to do anything if no changes
     if render_resources.is_changed() {
-        dbg!();
         // Precalculate the aligned size of the whole render resources buffer
         let aligned_size = render_resources
             .iter()
@@ -173,7 +163,6 @@ fn global_render_resources_node_system<T: RenderResources>(
         let mut offset = 0u64;
         for (index, render_resource) in render_resources.iter().enumerate() {
             let render_resource_name = render_resources.get_render_resource_name(index).unwrap();
-            // dbg!(&render_resource_name);
 
             let size = render_resource.buffer_byte_len().unwrap();
             let aligned_size = render_resource_context.get_aligned_uniform_size(size, false) as u64;
