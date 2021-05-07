@@ -34,24 +34,24 @@ fn setup(
             ..Default::default()
         },
         material: poly_line_materials.add(PolyLineMaterial {
-            width: 1.0,
+            width: 15.0,
             color: Color::RED,
         }),
         ..Default::default()
     });
 
-    commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
-        material: standard_materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
-        ..Default::default()
-    });
-    // cube
-    commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: standard_materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..Default::default()
-    });
+    // commands.spawn_bundle(PbrBundle {
+    //     mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
+    //     material: standard_materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+    //     ..Default::default()
+    // });
+    // // cube
+    // commands.spawn_bundle(PbrBundle {
+    //     mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+    //     material: standard_materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+    //     transform: Transform::from_xyz(0.0, 0.5, 0.0),
+    //     ..Default::default()
+    // });
 
     // light
     commands.spawn_bundle(PointLightBundle {
@@ -66,6 +66,13 @@ fn setup(
             ..PerspectiveCameraBundle::new_3d()
         })
         .insert(Rotates);
+
+    // camera
+    // commands
+    // .spawn_bundle(PerspectiveCameraBundle {
+    //     transform: Transform::from_xyz(-5.0, 2.5, 0.3).looking_at(Vec3::ZERO, Vec3::Y),
+    //     ..PerspectiveCameraBundle::new_3d()
+    // });
 }
 
 /// this component indicates what entities should rotate
