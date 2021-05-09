@@ -7,9 +7,18 @@ edition = "2018"
 name = "linestrip"
 path = "examples/linestrip.rs"
 
+[[example]]
+name = "nbody"
+path = "examples/nbody.rs"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 bevy = { version = "0.5.0" }
+
+[dev-dependencies]
+lazy_static = "1.4.0"
+rand = "0.8.3"
+ringbuffer = "0.7.1"
 
 [patch.crates-io]
 bevy = { path = "../bevy" }

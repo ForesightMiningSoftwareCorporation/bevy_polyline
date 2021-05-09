@@ -158,6 +158,9 @@ fn poly_line_draw_render_pipelines_system(
                 .vertex_buffer_layout
                 .attributes
                 .len() as u32;
+            if (num_attributes - 1) > num_vertices / (stride / 12) {
+                continue;
+            }
             let num_instances = num_vertices / (stride / 12) - (num_attributes - 1);
 
             draw.draw(0..6, 0..num_instances)
@@ -178,6 +181,10 @@ pub fn poly_line_resource_provider_system(
             render_resource_context.remove_buffer(buffer_id);
         }
 
+        if poly_line.vertices.is_empty() {
+            return;
+        }
+
         let buffer_id = render_resource_context.create_buffer_with_data(
             BufferInfo {
                 size: poly_line.vertices.byte_len(),
@@ -194,7 +201,7 @@ pub fn poly_line_resource_provider_system(
     });
 }
 
-#[derive(Default, Reflect)]
+#[derive(Debug, Default, Reflect)]
 #[reflect(Component)]
 pub struct PolyLine {
     pub vertices: Vec<Vec3>,
