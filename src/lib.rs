@@ -132,10 +132,6 @@ fn poly_line_draw_render_pipelines_system(
 
         // draw for each pipeline
         for render_pipeline in render_pipelines.pipelines.iter_mut() {
-            let render_resource_bindings = &mut [
-                &mut render_pipelines.bindings,
-                &mut render_resource_bindings,
-            ];
             draw_context
                 .set_pipeline(
                     &mut draw,
@@ -143,6 +139,13 @@ fn poly_line_draw_render_pipelines_system(
                     &render_pipeline.specialization,
                 )
                 .unwrap();
+
+            // TODO really only need to bind these once per entity, but not currently possible
+            // due to a limitation in pass_node::DrawState
+            let render_resource_bindings = &mut [
+                &mut render_pipelines.bindings,
+                &mut render_resource_bindings,
+            ];
             draw_context
                 .set_bind_groups_from_bindings(&mut draw, render_resource_bindings)
                 .unwrap();
