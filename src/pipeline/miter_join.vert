@@ -16,6 +16,10 @@ layout(set = 2, binding = 0) uniform PolyLineMaterial_width {
     float width;
 };
 
+layout(set = 2, binding = 1) uniform PolyLineMaterial_color {
+    vec4 color;
+};
+
 layout(set = 3, binding = 0) uniform GlobalResources_resolution {
     vec2 resolution;
 };
@@ -52,7 +56,13 @@ void main() {
     float sigma = sign(dot(ab + cb, miter));
 
     #ifdef POLYLINEMATERIAL_PERSPECTIVE
+    vec4 color = color;
     float width = width / clip1.w;
+    // Line thinness fade from https://acegikmo.com/shapes/docs/#anti-aliasing
+    if (width < 1.0) {
+        color.a *= width;
+        width = 1.0;
+    }
     #endif
 
     vec2 p0 = 0.5 * width * sigma * (sigma < 0.0 ? abNorm : cbNorm);

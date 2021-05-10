@@ -3,6 +3,8 @@
 layout(location = 0) in vec3 Instance_Point0;
 layout(location = 1) in vec3 Instance_Point1;
 
+layout(location = 0) out vec4 Vertex_Color;
+
 layout(set = 0, binding = 0) uniform CameraViewProj {
     mat4 ViewProj;
 };
@@ -13,6 +15,10 @@ layout(set = 1, binding = 0) uniform Transform {
 
 layout(set = 2, binding = 0) uniform PolyLineMaterial_width {
     float width;
+};
+
+layout(set = 2, binding = 1) uniform PolyLineMaterial_color {
+    vec4 color;
 };
 
 layout(set = 3, binding = 0) uniform GlobalResources_resolution {
@@ -43,7 +49,13 @@ void main() {
     vec2 yBasis = vec2(-xBasis.y, xBasis.x);
 
     #ifdef POLYLINEMATERIAL_PERSPECTIVE
+    vec4 color = color;
     float width = width / clip.w;
+    // Line thinness fade from https://acegikmo.com/shapes/docs/#anti-aliasing
+    if (width < 1.0) {
+        color.a *= width;
+        width = 1.0;
+    }
     #endif
 
     vec2 pt0 = screen0 + width * (position.x * xBasis + position.y * yBasis);
@@ -51,4 +63,5 @@ void main() {
     vec2 pt = mix(pt0, pt1, position.z);
 
     gl_Position = vec4(clip.w * ((2.0 * pt) / resolution - 1.0), clip.z, clip.w);
+    Vertex_Color = color;
 }
