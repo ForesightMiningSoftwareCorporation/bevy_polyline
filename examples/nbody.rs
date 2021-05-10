@@ -7,19 +7,15 @@ use lazy_static::*;
 use rand::{prelude::*, Rng};
 use ringbuffer::{ConstGenericRingBuffer, RingBufferExt, RingBufferWrite};
 
-const NUM_BODIES: usize = 100;
-const TRAIL_LENGTH: usize = 128;
-const TRAIL_UPDATE_RATE_MILLIS: u64 = 25;
+const NUM_BODIES: usize = 500;
+const TRAIL_LENGTH: usize = 4096;
+const MINIMUM_LINE_SEGMENT_LENGTH_SQUARED: f32 = 0.1;
 
 fn main() {
     let mut app = App::build();
 
     app.insert_resource(ClearColor(Color::BLACK))
         .insert_resource(Msaa { samples: 4 })
-        .insert_resource(Timer::new(
-            Duration::from_millis(TRAIL_UPDATE_RATE_MILLIS),
-            true,
-        ))
         .insert_resource(Simulation {
             scale: 1e5,
             ..Default::default()
@@ -137,7 +133,6 @@ const EPSILON: f32 = 1.;
 
 fn nbody_system(
     time: Res<Time>,
-    mut timer: ResMut<Timer>,
     mut simulation: ResMut<Simulation>,
     mut query: Query<(
         Entity,
@@ -189,15 +184,21 @@ fn nbody_system(
     }
 
     // Update Trails
-    timer.tick(time.delta());
-    if timer.just_finished() {
-        bodies
-            .iter_mut()
-            .for_each(|(_entity, body, trail, poly_line)| {
+    bodies
+        .iter_mut()
+        .for_each(|(_entity, body, trail, poly_line)| {
+            if let Some(position) = trail.back() {
+                if (*position - body.position).length_squared()
+                    > MINIMUM_LINE_SEGMENT_LENGTH_SQUARED
+                {
+                    trail.push(body.position);
+                    poly_line.vertices = trail.to_vec();
+                }
+            } else {
                 trail.push(body.position);
                 poly_line.vertices = trail.to_vec();
-            });
-    }
+            }
+        });
 }
 
 lazy_static! {
