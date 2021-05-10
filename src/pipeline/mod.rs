@@ -28,13 +28,13 @@ pub fn new_poly_line_pipeline(striped: bool) -> RenderPipeline {
                 step_mode: InputStepMode::Instance,
                 attributes: vec![
                     VertexAttribute {
-                        name: "Instance_Point0".into(),
+                        name: "I_Point0".into(),
                         format: VertexFormat::Float32x3,
                         offset: 0,
                         shader_location: 0,
                     },
                     VertexAttribute {
-                        name: "Instance_Point1".into(),
+                        name: "I_Point1".into(),
                         format: VertexFormat::Float32x3,
                         offset: 12,
                         shader_location: 1,
@@ -90,19 +90,19 @@ pub fn new_miter_join_pipeline() -> RenderPipeline {
                 step_mode: InputStepMode::Instance,
                 attributes: vec![
                     VertexAttribute {
-                        name: "Instance_Point0".into(),
+                        name: "I_Point0".into(),
                         format: VertexFormat::Float32x3,
                         offset: 0,
                         shader_location: 0,
                     },
                     VertexAttribute {
-                        name: "Instance_Point1".into(),
+                        name: "I_Point1".into(),
                         format: VertexFormat::Float32x3,
                         offset: 12,
                         shader_location: 1,
                     },
                     VertexAttribute {
-                        name: "Instance_Point2".into(),
+                        name: "I_Point2".into(),
                         format: VertexFormat::Float32x3,
                         offset: 24,
                         shader_location: 2,

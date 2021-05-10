@@ -1,8 +1,8 @@
 #version 450
 
-layout(location = 0) in vec3 Instance_Point0;
-layout(location = 1) in vec3 Instance_Point1;
-layout(location = 2) in vec3 Instance_Point2;
+layout(location = 0) in vec3 I_Point0;
+layout(location = 1) in vec3 I_Point1;
+layout(location = 2) in vec3 I_Point2;
 
 layout(set = 0, binding = 0) uniform CameraViewProj {
     mat4 ViewProj;
@@ -37,9 +37,9 @@ void main() {
     vec3 position = positions[gl_VertexIndex];
 
     // algorithm based on https://wwwtyro.net/2019/11/18/instanced-lines.html
-    vec4 clip0 = ViewProj * Model * vec4(Instance_Point0, 1);
-    vec4 clip1 = ViewProj * Model * vec4(Instance_Point1, 1);
-    vec4 clip2 = ViewProj * Model * vec4(Instance_Point2, 1);
+    vec4 clip0 = ViewProj * Model * vec4(I_Point0, 1);
+    vec4 clip1 = ViewProj * Model * vec4(I_Point1, 1);
+    vec4 clip2 = ViewProj * Model * vec4(I_Point2, 1);
 
     vec2 screen0 = resolution * (0.5 * clip0.xy/clip0.w + 0.5);
     vec2 screen1 = resolution * (0.5 * clip1.xy/clip1.w + 0.5);
