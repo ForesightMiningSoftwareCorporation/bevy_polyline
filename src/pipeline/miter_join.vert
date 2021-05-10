@@ -14,11 +14,11 @@ layout(set = 1, binding = 0) uniform Transform {
     mat4 Model;
 };
 
-layout(set = 2, binding = 0) uniform PolyLineMaterial_width {
+layout(set = 2, binding = 0) uniform PolylineMaterial_width {
     float width;
 };
 
-layout(set = 2, binding = 1) uniform PolyLineMaterial_color {
+layout(set = 2, binding = 1) uniform PolylineMaterial_color {
     vec4 color;
 };
 

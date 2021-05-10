@@ -1,12 +1,12 @@
 use bevy::{pbr::PointLightBundle, prelude::*};
-use bevy_poly_line::{PolyLine, PolyLineBundle, PolyLineMaterial, PolyLinePlugin};
+use bevy_polyline::{Polyline, PolylineBundle, PolylineMaterial, PolylinePlugin};
 
 fn main() {
     let mut app = App::build();
 
     app.insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
-        .add_plugin(PolyLinePlugin)
+        .add_plugin(PolylinePlugin)
         .add_startup_system(setup.system())
         .add_system(rotator_system.system());
 
@@ -17,10 +17,10 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
-    mut poly_line_materials: ResMut<Assets<PolyLineMaterial>>,
+    mut polyline_materials: ResMut<Assets<PolylineMaterial>>,
 ) {
-    commands.spawn_bundle(PolyLineBundle {
-        poly_line: PolyLine {
+    commands.spawn_bundle(PolylineBundle {
+        polyline: Polyline {
             vertices: vec![
                 Vec3::new(-0.5, 0.0, -0.5),
                 Vec3::new(0.5, 0.0, -0.5),
@@ -33,26 +33,26 @@ fn setup(
             ],
             ..Default::default()
         },
-        material: poly_line_materials.add(PolyLineMaterial {
+        material: polyline_materials.add(PolylineMaterial {
             width: 5.0,
             color: Color::RED,
-            perspective: true,
+            perspective: false,
         }),
         ..Default::default()
     });
 
-    // commands.spawn_bundle(PbrBundle {
-    //     mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
-    //     material: standard_materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
-    //     ..Default::default()
-    // });
-    // // cube
-    // commands.spawn_bundle(PbrBundle {
-    //     mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-    //     material: standard_materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-    //     transform: Transform::from_xyz(0.0, 0.5, 0.0),
-    //     ..Default::default()
-    // });
+    commands.spawn_bundle(PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
+        material: standard_materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        ..Default::default()
+    });
+    // cube
+    commands.spawn_bundle(PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        material: standard_materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+        transform: Transform::from_xyz(0.0, 0.5, 0.0),
+        ..Default::default()
+    });
 
     // light
     commands.spawn_bundle(PointLightBundle {
@@ -67,13 +67,6 @@ fn setup(
             ..PerspectiveCameraBundle::new_3d()
         })
         .insert(Rotates);
-
-    // camera
-    // commands
-    // .spawn_bundle(PerspectiveCameraBundle {
-    //     transform: Transform::from_xyz(-5.0, 2.5, 0.3).looking_at(Vec3::ZERO, Vec3::Y),
-    //     ..PerspectiveCameraBundle::new_3d()
-    // });
 }
 
 /// this component indicates what entities should rotate

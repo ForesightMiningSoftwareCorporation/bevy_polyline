@@ -1,14 +1,15 @@
-use std::time::Duration;
-
-use bevy::{pbr::PointLightBundle, prelude::*};
-use bevy_poly_line::{PolyLine, PolyLineBundle, PolyLineMaterial, PolyLinePlugin};
+use bevy::{
+    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    prelude::*,
+};
+use bevy_polyline::{Polyline, PolylineBundle, PolylineMaterial, PolylinePlugin};
 
 use lazy_static::*;
 use rand::{prelude::*, Rng};
 use ringbuffer::{ConstGenericRingBuffer, RingBufferExt, RingBufferWrite};
 
-const NUM_BODIES: usize = 500;
-const TRAIL_LENGTH: usize = 4096;
+const NUM_BODIES: usize = 20;
+const TRAIL_LENGTH: usize = 1024;
 const MINIMUM_LINE_SEGMENT_LENGTH_SQUARED: f32 = 0.1;
 
 fn main() {
@@ -21,15 +22,17 @@ fn main() {
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
-        .add_plugin(PolyLinePlugin)
+        .add_plugin(PolylinePlugin)
         .add_startup_system(setup.system())
         .add_system(nbody_system.system())
-        .add_system(rotator_system.system());
+        .add_system(rotator_system.system())
+        .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        .add_plugin(LogDiagnosticsPlugin::default());
 
     app.run();
 }
 
-fn setup(mut commands: Commands, mut poly_line_materials: ResMut<Assets<PolyLineMaterial>>) {
+fn setup(mut commands: Commands, mut polyline_materials: ResMut<Assets<PolylineMaterial>>) {
     for _index in 0..NUM_BODIES {
         let mut rng = thread_rng();
         let position = Vec3::new(
@@ -46,11 +49,11 @@ fn setup(mut commands: Commands, mut poly_line_materials: ResMut<Assets<PolyLine
                 },
                 ConstGenericRingBuffer::<Vec3, TRAIL_LENGTH>::new(),
             ))
-            .insert_bundle(PolyLineBundle {
-                poly_line: PolyLine {
+            .insert_bundle(PolylineBundle {
+                polyline: Polyline {
                     vertices: Vec::with_capacity(TRAIL_LENGTH),
                 },
-                material: poly_line_materials.add(PolyLineMaterial {
+                material: polyline_materials.add(PolylineMaterial {
                     width: 200.0,
                     color: Color::rgb_linear(
                         rng.gen_range(0.0..1.0),
@@ -66,7 +69,7 @@ fn setup(mut commands: Commands, mut poly_line_materials: ResMut<Assets<PolyLine
     // camera
     commands
         .spawn_bundle(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(0.0, 0.0, -500.0).looking_at(Vec3::ZERO, Vec3::Y),
+            transform: Transform::from_xyz(0.0, 0.0, -700.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..PerspectiveCameraBundle::new_3d()
         })
         .insert(Rotates);
@@ -138,7 +141,7 @@ fn nbody_system(
         Entity,
         &mut Body,
         &mut ConstGenericRingBuffer<Vec3, TRAIL_LENGTH>,
-        &mut PolyLine,
+        &mut Polyline,
     )>,
 ) {
     let mut bodies = query.iter_mut().collect::<Vec<_>>();
@@ -186,17 +189,17 @@ fn nbody_system(
     // Update Trails
     bodies
         .iter_mut()
-        .for_each(|(_entity, body, trail, poly_line)| {
+        .for_each(|(_entity, body, trail, polyline)| {
             if let Some(position) = trail.back() {
                 if (*position - body.position).length_squared()
                     > MINIMUM_LINE_SEGMENT_LENGTH_SQUARED
                 {
                     trail.push(body.position);
-                    poly_line.vertices = trail.to_vec();
+                    polyline.vertices = trail.to_vec();
                 }
             } else {
                 trail.push(body.position);
-                poly_line.vertices = trail.to_vec();
+                polyline.vertices = trail.to_vec();
             }
         });
 }

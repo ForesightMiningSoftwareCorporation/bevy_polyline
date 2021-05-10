@@ -12,18 +12,18 @@ use bevy::{
     },
 };
 
-const POLY_LINE_PIPELINE_HANDLE: HandleUntyped =
+const POLYLINE_PIPELINE_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 0x6e339e9dad279849);
 
 const MITER_JOIN_PIPELINE_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 0x468f1a2db6e312a);
 
-pub fn new_poly_line_pipeline(striped: bool) -> RenderPipeline {
+pub fn new_polyline_pipeline(striped: bool) -> RenderPipeline {
     RenderPipeline {
-        pipeline: POLY_LINE_PIPELINE_HANDLE.typed().clone_weak(),
+        pipeline: POLYLINE_PIPELINE_HANDLE.typed().clone_weak(),
         specialization: PipelineSpecialization {
             vertex_buffer_layout: VertexBufferLayout {
-                name: "PolyLine".into(),
+                name: "Polyline".into(),
                 stride: if striped { 12 } else { 24 },
                 step_mode: InputStepMode::Instance,
                 attributes: vec![
@@ -48,16 +48,16 @@ pub fn new_poly_line_pipeline(striped: bool) -> RenderPipeline {
 }
 
 pub fn build_pipelines(shaders: &mut Assets<Shader>, pipelines: &mut Assets<PipelineDescriptor>) {
-    let pipeline = build_poly_line_pipeline(shaders);
-    pipelines.set_untracked(POLY_LINE_PIPELINE_HANDLE, pipeline);
+    let pipeline = build_polyline_pipeline(shaders);
+    pipelines.set_untracked(POLYLINE_PIPELINE_HANDLE, pipeline);
 
     let pipeline = build_miter_join_pipeline(shaders);
     pipelines.set_untracked(MITER_JOIN_PIPELINE_HANDLE, pipeline);
 }
 
-fn build_poly_line_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
+fn build_polyline_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
     PipelineDescriptor {
-        name: Some("poly_line".into()),
+        name: Some("polyline".into()),
         primitive: PrimitiveState {
             topology: PrimitiveTopology::TriangleList,
             strip_index_format: None,
@@ -70,11 +70,11 @@ fn build_poly_line_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor 
         ..PipelineDescriptor::default_config(ShaderStages {
             vertex: shaders.add(Shader::from_glsl(
                 ShaderStage::Vertex,
-                include_str!("poly_line.vert"),
+                include_str!("polyline.vert"),
             )),
             fragment: Some(shaders.add(Shader::from_glsl(
                 ShaderStage::Fragment,
-                include_str!("poly_line.frag"),
+                include_str!("polyline.frag"),
             ))),
         })
     }
@@ -85,7 +85,7 @@ pub fn new_miter_join_pipeline() -> RenderPipeline {
         pipeline: MITER_JOIN_PIPELINE_HANDLE.typed().clone_weak(),
         specialization: PipelineSpecialization {
             vertex_buffer_layout: VertexBufferLayout {
-                name: "PolyLine".into(),
+                name: "Polyline".into(),
                 stride: 12, // joined lines are always striped
                 step_mode: InputStepMode::Instance,
                 attributes: vec![

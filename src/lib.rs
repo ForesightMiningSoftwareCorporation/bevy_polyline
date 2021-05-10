@@ -34,28 +34,28 @@ mod pipeline;
 use global_render_resources_node::GlobalRenderResourcesNode;
 
 pub mod node {
-    pub const POLY_LINE_MATERIAL_NODE: &str = "poly_line_material_node";
+    pub const POLYLINE_MATERIAL_NODE: &str = "polyline_material_node";
     pub const GLOBAL_RENDER_RESOURCES_NODE: &str = "global_render_resources_node";
 }
 
-pub struct PolyLinePlugin;
+pub struct PolylinePlugin;
 
-impl Plugin for PolyLinePlugin {
+impl Plugin for PolylinePlugin {
     fn build(&self, app: &mut bevy::prelude::AppBuilder) {
-        app.add_asset::<PolyLineMaterial>()
-            .register_type::<PolyLine>()
+        app.add_asset::<PolylineMaterial>()
+            .register_type::<Polyline>()
             .insert_resource(GlobalResources::default())
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                shader::asset_shader_defs_system::<PolyLineMaterial>.system(),
+                shader::asset_shader_defs_system::<PolylineMaterial>.system(),
             )
             .add_system_to_stage(
                 RenderStage::RenderResource,
-                poly_line_resource_provider_system.system(),
+                polyline_resource_provider_system.system(),
             )
             .add_system_to_stage(
                 RenderStage::Draw,
-                poly_line_draw_render_pipelines_system.system(),
+                polyline_draw_render_pipelines_system.system(),
             )
             .add_system(update_global_resources_system.system());
 
@@ -70,10 +70,10 @@ impl Plugin for PolyLinePlugin {
         // Setup rendergraph addition
         let mut render_graph = world.get_resource_mut::<RenderGraph>().unwrap();
 
-        let material_node = AssetRenderResourcesNode::<PolyLineMaterial>::new(true);
-        render_graph.add_system_node(node::POLY_LINE_MATERIAL_NODE, material_node);
+        let material_node = AssetRenderResourcesNode::<PolylineMaterial>::new(true);
+        render_graph.add_system_node(node::POLYLINE_MATERIAL_NODE, material_node);
         render_graph
-            .add_node_edge(node::POLY_LINE_MATERIAL_NODE, base::node::MAIN_PASS)
+            .add_node_edge(node::POLYLINE_MATERIAL_NODE, base::node::MAIN_PASS)
             .unwrap();
 
         let global_render_resources_node = GlobalRenderResourcesNode::<GlobalResources>::new();
@@ -85,16 +85,16 @@ impl Plugin for PolyLinePlugin {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn poly_line_draw_render_pipelines_system(
+fn polyline_draw_render_pipelines_system(
     mut draw_context: DrawContext,
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
     msaa: Res<Msaa>,
     mut query: Query<
-        (&mut Draw, &mut RenderPipelines, &PolyLine, &Visible),
+        (&mut Draw, &mut RenderPipelines, &Polyline, &Visible),
         Without<OutsideFrustum>,
     >,
 ) {
-    for (mut draw, mut render_pipelines, poly_line, visible) in query.iter_mut() {
+    for (mut draw, mut render_pipelines, polyline, visible) in query.iter_mut() {
         if !visible.is_visible {
             continue;
         }
@@ -154,7 +154,7 @@ fn poly_line_draw_render_pipelines_system(
                 .unwrap();
 
             // calculate how many instances this shader needs to render
-            let num_vertices = poly_line.vertices.len() as u32;
+            let num_vertices = polyline.vertices.len() as u32;
             let stride = render_pipeline.specialization.vertex_buffer_layout.stride as u32;
             let num_attributes = render_pipeline
                 .specialization
@@ -171,30 +171,30 @@ fn poly_line_draw_render_pipelines_system(
     }
 }
 
-pub fn poly_line_resource_provider_system(
+pub fn polyline_resource_provider_system(
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
-    mut query: Query<(&PolyLine, &mut RenderPipelines), Changed<PolyLine>>,
+    mut query: Query<(&Polyline, &mut RenderPipelines), Changed<Polyline>>,
 ) {
     // let mut changed_meshes = HashSet::default();
     let render_resource_context = &**render_resource_context;
 
-    query.for_each_mut(|(poly_line, mut render_pipelines)| {
+    query.for_each_mut(|(polyline, mut render_pipelines)| {
         // remove previous buffer
         if let Some(buffer_id) = render_pipelines.bindings.vertex_attribute_buffer {
             render_resource_context.remove_buffer(buffer_id);
         }
 
-        if poly_line.vertices.is_empty() {
+        if polyline.vertices.is_empty() {
             return;
         }
 
         let buffer_id = render_resource_context.create_buffer_with_data(
             BufferInfo {
-                size: poly_line.vertices.byte_len(),
+                size: polyline.vertices.byte_len(),
                 buffer_usage: BufferUsage::VERTEX | BufferUsage::COPY_DST,
                 mapped_at_creation: false,
             },
-            poly_line.vertices.as_bytes(),
+            polyline.vertices.as_bytes(),
         );
 
         render_pipelines
@@ -206,14 +206,14 @@ pub fn poly_line_resource_provider_system(
 
 #[derive(Debug, Default, Reflect)]
 #[reflect(Component)]
-pub struct PolyLine {
+pub struct Polyline {
     pub vertices: Vec<Vec3>,
 }
 
 #[derive(Reflect, RenderResources, ShaderDefs, TypeUuid)]
 #[reflect(Component)]
 #[uuid = "0be0c53f-05c9-40d4-ac1d-b56e072e33f8"]
-pub struct PolyLineMaterial {
+pub struct PolylineMaterial {
     pub width: f32,
     pub color: Color,
     #[render_resources(ignore)]
@@ -221,7 +221,7 @@ pub struct PolyLineMaterial {
     pub perspective: bool,
 }
 
-impl Default for PolyLineMaterial {
+impl Default for PolylineMaterial {
     fn default() -> Self {
         Self {
             width: 10.0,
@@ -232,9 +232,9 @@ impl Default for PolyLineMaterial {
 }
 
 #[derive(Bundle)]
-pub struct PolyLineBundle {
-    pub material: Handle<PolyLineMaterial>,
-    pub poly_line: PolyLine,
+pub struct PolylineBundle {
+    pub material: Handle<PolylineMaterial>,
+    pub polyline: Polyline,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     pub visible: Visible,
@@ -243,17 +243,17 @@ pub struct PolyLineBundle {
     pub main_pass: MainPass,
 }
 
-impl Default for PolyLineBundle {
+impl Default for PolylineBundle {
     fn default() -> Self {
         Self {
             material: Default::default(),
-            poly_line: Default::default(),
+            polyline: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
             visible: Default::default(),
             draw: Default::default(),
             render_pipelines: RenderPipelines::from_pipelines(vec![
-                pipeline::new_poly_line_pipeline(true),
+                pipeline::new_polyline_pipeline(true),
                 pipeline::new_miter_join_pipeline(),
             ]),
             main_pass: MainPass,
