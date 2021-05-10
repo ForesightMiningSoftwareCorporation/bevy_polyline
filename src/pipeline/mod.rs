@@ -4,9 +4,9 @@ use bevy::{
     reflect::TypeUuid,
     render::{
         pipeline::{
-            Face, FrontFace, InputStepMode, PipelineDescriptor, PipelineSpecialization,
-            PolygonMode, PrimitiveState, PrimitiveTopology, RenderPipeline, VertexAttribute,
-            VertexBufferLayout, VertexFormat,
+            FrontFace, InputStepMode, PipelineDescriptor, PipelineSpecialization, PolygonMode,
+            PrimitiveState, PrimitiveTopology, RenderPipeline, VertexAttribute, VertexBufferLayout,
+            VertexFormat,
         },
         shader::{Shader, ShaderStage, ShaderStages},
     },
