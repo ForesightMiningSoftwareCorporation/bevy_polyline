@@ -8,14 +8,18 @@ use lazy_static::*;
 use rand::{prelude::*, Rng};
 use ringbuffer::{ConstGenericRingBuffer, RingBufferExt, RingBufferWrite};
 
-const NUM_BODIES: usize = 20;
-const TRAIL_LENGTH: usize = 1024;
+const NUM_BODIES: usize = 500;
+const TRAIL_LENGTH: usize = 8192;
 const MINIMUM_LINE_SEGMENT_LENGTH_SQUARED: f32 = 0.1;
 
 fn main() {
     let mut app = App::build();
 
-    app.insert_resource(ClearColor(Color::BLACK))
+    app.insert_resource(WindowDescriptor {
+            vsync: true,
+            ..Default::default()
+        })
+        .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(Msaa { samples: 4 })
         .insert_resource(Simulation {
             scale: 1e5,
