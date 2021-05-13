@@ -3,19 +3,20 @@ use bevy::{
     ecs::{reflect::ReflectComponent, system::IntoSystem},
     math::{Vec2, Vec3},
     prelude::{
-        AddAsset, Assets, Changed, Color, Draw, EventReader, GlobalTransform, Handle, Msaa, Query,
-        RenderPipelines, Res, ResMut, Shader, Transform, Without,
+        AddAsset, Assets, Changed, Color, Commands, Draw, EventReader, GlobalTransform, Handle,
+        Msaa, Query, RenderPipelines, Res, ResMut, Shader, Transform, Without,
     },
     reflect::{Reflect, TypeUuid},
     render::{
         draw::{DrawContext, OutsideFrustum},
-        pipeline::PipelineDescriptor,
+        pipeline::{IndexFormat, PipelineDescriptor},
         render_graph::{
             base::{self, MainPass},
             AssetRenderResourcesNode, RenderGraph,
         },
         renderer::{
-            BufferInfo, BufferUsage, RenderResourceBindings, RenderResourceContext, RenderResources,
+            BufferId, BufferInfo, BufferUsage, RenderResourceBindings, RenderResourceContext,
+            RenderResources,
         },
         shader::ShaderDefs,
         RenderStage,
@@ -57,7 +58,8 @@ impl Plugin for PolylinePlugin {
                 RenderStage::Draw,
                 polyline_draw_render_pipelines_system.system(),
             )
-            .add_system(update_global_resources_system.system());
+            .add_system(update_global_resources_system.system())
+            .add_startup_system(setup_polyline_index_buffer_system.system());
 
         // Setup pipeline
         let world = app.world_mut().cell();
@@ -84,8 +86,31 @@ impl Plugin for PolylinePlugin {
     }
 }
 
+pub struct PolylineIndexBuffer {
+    pub line_index_buffer_id: BufferId,
+}
+
+fn setup_polyline_index_buffer_system(
+    mut commands: Commands,
+    render_resource_context: Res<Box<dyn RenderResourceContext>>,
+) {
+    let line_index_buffer = [0u16, 1, 2, 0, 2, 3];
+    let line_index_buffer_id = render_resource_context.create_buffer_with_data(
+        BufferInfo {
+            size: line_index_buffer.byte_len(),
+            buffer_usage: BufferUsage::COPY_DST | BufferUsage::INDEX,
+            mapped_at_creation: false,
+        },
+        line_index_buffer.as_bytes(),
+    );
+    commands.insert_resource(PolylineIndexBuffer {
+        line_index_buffer_id,
+    });
+}
+
 #[allow(clippy::too_many_arguments)]
 fn polyline_draw_render_pipelines_system(
+    poly_line_index_buffer: Res<PolylineIndexBuffer>,
     mut draw_context: DrawContext,
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
     msaa: Res<Msaa>,
@@ -152,6 +177,11 @@ fn polyline_draw_render_pipelines_system(
             draw_context
                 .set_vertex_buffers_from_bindings(&mut draw, &[&render_pipelines.bindings])
                 .unwrap();
+            draw.set_index_buffer(
+                poly_line_index_buffer.line_index_buffer_id,
+                0,
+                IndexFormat::Uint16,
+            );
 
             // calculate how many instances this shader needs to render
             let num_vertices = polyline.vertices.len() as u32;
@@ -166,13 +196,14 @@ fn polyline_draw_render_pipelines_system(
             }
             let num_instances = num_vertices / (stride / 12) - (num_attributes - 1);
 
-            draw.draw(0..6, 0..num_instances)
+            draw.draw_indexed(0..6, 0, 0..num_instances);
         }
     }
 }
 
 pub fn polyline_resource_provider_system(
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
+    polyline_index_buffer: Res<PolylineIndexBuffer>,
     mut query: Query<(&Polyline, &mut RenderPipelines), Changed<Polyline>>,
 ) {
     // let mut changed_meshes = HashSet::default();
@@ -201,6 +232,11 @@ pub fn polyline_resource_provider_system(
             .bindings
             .vertex_attribute_buffer
             .replace(buffer_id);
+
+        render_pipelines.bindings.index_buffer.replace((
+            polyline_index_buffer.line_index_buffer_id,
+            IndexFormat::Uint16,
+        ));
     });
 }
 
