@@ -37,8 +37,8 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, mut polyline_materials: ResMut<Assets<PolylineMaterial>>) {
+    let mut rng = StdRng::seed_from_u64(0);
     for _index in 0..NUM_BODIES {
-        let mut rng = thread_rng();
         let position = Vec3::new(
             rng.gen_range(-100f32..100f32),
             rng.gen_range(-100f32..100f32),
