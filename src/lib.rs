@@ -1,5 +1,5 @@
 use bevy::{
-    core::{AsBytes, Bytes},
+    core::cast_slice,
     ecs::{reflect::ReflectComponent, system::IntoSystem},
     math::{Vec2, Vec3},
     prelude::{
@@ -190,11 +190,11 @@ pub fn polyline_resource_provider_system(
 
         let buffer_id = render_resource_context.create_buffer_with_data(
             BufferInfo {
-                size: polyline.vertices.byte_len(),
+                size: std::mem::size_of_val(&polyline.vertices),
                 buffer_usage: BufferUsage::VERTEX | BufferUsage::COPY_DST,
                 mapped_at_creation: false,
             },
-            polyline.vertices.as_bytes(),
+            cast_slice(polyline.vertices.as_slice()),
         );
 
         render_pipelines
