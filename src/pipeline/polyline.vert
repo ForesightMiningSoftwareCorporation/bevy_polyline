@@ -4,6 +4,7 @@ layout(location = 0) in vec3 I_Point0;
 layout(location = 1) in vec3 I_Point1;
 
 layout(location = 0) out vec4 Vertex_Color;
+layout(location = 1) out vec2 v_Uv;
 
 layout(set = 0, binding = 0) uniform CameraViewProj {
     mat4 ViewProj;
@@ -64,4 +65,5 @@ void main() {
 
     gl_Position = vec4(clip.w * ((2.0 * pt) / resolution - 1.0), clip.z, clip.w);
     Vertex_Color = color;
+    v_Uv = vec2(position.y + 0.5, position.z);
 }
