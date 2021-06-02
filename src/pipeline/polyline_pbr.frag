@@ -351,13 +351,13 @@ vec3 dir_light(DirectionalLight light, float roughness, float NdotV, vec3 normal
 
 void main() {
     vec4 output_color = base_color;
-#ifdef PolylinePbrMaterial_BASE_COLOR_TEXTURE
+#ifdef POLYLINEPBRMATERIAL_BASE_COLOR_TEXTURE
     output_color *= texture(sampler2D(PolylinePbrMaterial_base_color_texture,
                                       PolylinePbrMaterial_base_color_texture_sampler),
                             v_Uv);
 #endif
 
-#ifndef PolylinePbrMaterial_UNLIT
+#ifndef POLYLINEPBRMATERIAL_UNLIT
     // calculate non-linear roughness from linear perceptualRoughness
 #    ifdef PolylinePbrMaterial_METALLIC_ROUGHNESS_TEXTURE
     vec4 metallic_roughness = texture(sampler2D(PolylinePbrMaterial_metallic_roughness_texture, PolylinePbrMaterial_metallic_roughness_texture_sampler), v_Uv);
