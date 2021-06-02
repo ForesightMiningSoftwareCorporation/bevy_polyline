@@ -1,5 +1,9 @@
 use bevy::{pbr::PointLightBundle, prelude::*};
-use bevy_polyline::{Polyline, PolylineBundle, PolylineMaterial, PolylinePlugin};
+use bevy_polyline::{
+    pipeline::{new_polyline_pbr_pipeline, new_polyline_pipeline},
+    Polyline, PolylineBundle, PolylineMaterial, PolylinePbrBundle, PolylinePbrMaterial,
+    PolylinePlugin,
+};
 
 fn main() {
     let mut app = App::build();
@@ -16,10 +20,9 @@ fn main() {
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut standard_materials: ResMut<Assets<StandardMaterial>>,
-    mut polyline_materials: ResMut<Assets<PolylineMaterial>>,
+    mut polyline_pbr_materials: ResMut<Assets<PolylinePbrMaterial>>,
 ) {
-    commands.spawn_bundle(PolylineBundle {
+    commands.spawn_bundle(PolylinePbrBundle {
         polyline: Polyline {
             vertices: vec![
                 Vec3::new(-0.5, 0.0, -0.5),
@@ -33,10 +36,15 @@ fn setup(
             ],
             ..Default::default()
         },
-        material: polyline_materials.add(PolylineMaterial {
-            width: 5.0,
-            color: Color::RED,
-            perspective: false,
+        render_pipelines: RenderPipelines {
+            pipelines: vec![new_polyline_pbr_pipeline(true)],
+            ..Default::default()
+        },
+        polyline_pbr_material: polyline_pbr_materials.add(PolylinePbrMaterial {
+            width: 15.0,
+            perspective: true,
+            base_color: Color::WHITE,
+            ..Default::default()
         }),
         ..Default::default()
     });

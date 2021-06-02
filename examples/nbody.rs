@@ -57,7 +57,7 @@ fn setup(mut commands: Commands, mut polyline_materials: ResMut<Assets<PolylineM
                 polyline: Polyline {
                     vertices: Vec::with_capacity(TRAIL_LENGTH),
                 },
-                material: polyline_materials.add(PolylineMaterial {
+                polyline_material: polyline_materials.add(PolylineMaterial {
                     width: 200.0,
                     color: Color::rgb_linear(
                         rng.gen_range(0.0..1.0),

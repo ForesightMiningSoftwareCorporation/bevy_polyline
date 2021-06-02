@@ -3,8 +3,9 @@ use bevy::{
     ecs::{reflect::ReflectComponent, system::IntoSystem},
     math::{Vec2, Vec3},
     prelude::{
-        AddAsset, Assets, Changed, Color, Draw, EventReader, GlobalTransform, Handle, Msaa, Query,
-        RenderPipelines, Res, ResMut, Shader, Transform, Without,
+        AddAsset, Assets, Bundle, Changed, Color, CoreStage, Draw, EventReader, GlobalTransform,
+        Handle, Msaa, Plugin, Query, RenderPipelines, Res, ResMut, Shader, Transform, Visible,
+        Without,
     },
     reflect::{Reflect, TypeUuid},
     render::{
@@ -17,24 +18,22 @@ use bevy::{
         renderer::{
             BufferInfo, BufferUsage, RenderResourceBindings, RenderResourceContext, RenderResources,
         },
-        shader::ShaderDefs,
+        shader::{self, ShaderDefs},
+        texture::Texture,
         RenderStage,
     },
     utils::HashSet,
     window::{WindowResized, Windows},
 };
-use bevy::{
-    prelude::{Bundle, CoreStage, Plugin, Visible},
-    render::shader,
-};
 
 mod global_render_resources_node;
-mod pipeline;
+pub mod pipeline;
 
 use global_render_resources_node::GlobalRenderResourcesNode;
 
 pub mod node {
     pub const POLYLINE_MATERIAL_NODE: &str = "polyline_material_node";
+    pub const POLYLINE_PBR_MATERIAL_NODE: &str = "polyline_pbr_material_node";
     pub const GLOBAL_RENDER_RESOURCES_NODE: &str = "global_render_resources_node";
 }
 
@@ -43,11 +42,16 @@ pub struct PolylinePlugin;
 impl Plugin for PolylinePlugin {
     fn build(&self, app: &mut bevy::prelude::AppBuilder) {
         app.add_asset::<PolylineMaterial>()
+            .add_asset::<PolylinePbrMaterial>()
             .register_type::<Polyline>()
             .insert_resource(GlobalResources::default())
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 shader::asset_shader_defs_system::<PolylineMaterial>.system(),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                shader::asset_shader_defs_system::<PolylinePbrMaterial>.system(),
             )
             .add_system_to_stage(
                 RenderStage::RenderResource,
@@ -76,11 +80,20 @@ impl Plugin for PolylinePlugin {
             .add_node_edge(node::POLYLINE_MATERIAL_NODE, base::node::MAIN_PASS)
             .unwrap();
 
+        let pbr_material_node = AssetRenderResourcesNode::<PolylinePbrMaterial>::new(true);
+        render_graph.add_system_node(node::POLYLINE_PBR_MATERIAL_NODE, pbr_material_node);
+        render_graph
+            .add_node_edge(node::POLYLINE_PBR_MATERIAL_NODE, base::node::MAIN_PASS)
+            .unwrap();
+
         let global_render_resources_node = GlobalRenderResourcesNode::<GlobalResources>::new();
         render_graph.add_system_node(
             node::GLOBAL_RENDER_RESOURCES_NODE,
             global_render_resources_node,
         );
+        render_graph
+            .add_node_edge(node::GLOBAL_RENDER_RESOURCES_NODE, base::node::MAIN_PASS)
+            .unwrap();
     }
 }
 
@@ -146,6 +159,7 @@ fn polyline_draw_render_pipelines_system(
                 &mut render_pipelines.bindings,
                 &mut render_resource_bindings,
             ];
+
             draw_context
                 .set_bind_groups_from_bindings(&mut draw, render_resource_bindings)
                 .unwrap();
@@ -233,7 +247,7 @@ impl Default for PolylineMaterial {
 
 #[derive(Bundle)]
 pub struct PolylineBundle {
-    pub material: Handle<PolylineMaterial>,
+    pub polyline_material: Handle<PolylineMaterial>,
     pub polyline: Polyline,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
@@ -246,7 +260,37 @@ pub struct PolylineBundle {
 impl Default for PolylineBundle {
     fn default() -> Self {
         Self {
-            material: Default::default(),
+            polyline_material: Default::default(),
+            polyline: Default::default(),
+            transform: Default::default(),
+            global_transform: Default::default(),
+            visible: Default::default(),
+            draw: Default::default(),
+            render_pipelines: RenderPipelines::from_pipelines(vec![
+                pipeline::new_polyline_pipeline(true),
+                pipeline::new_miter_join_pipeline(),
+            ]),
+            main_pass: MainPass,
+        }
+    }
+}
+
+#[derive(Bundle)]
+pub struct PolylinePbrBundle {
+    pub polyline_pbr_material: Handle<PolylinePbrMaterial>,
+    pub polyline: Polyline,
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+    pub visible: Visible,
+    pub draw: Draw,
+    pub render_pipelines: RenderPipelines,
+    pub main_pass: MainPass,
+}
+
+impl Default for PolylinePbrBundle {
+    fn default() -> Self {
+        Self {
+            polyline_pbr_material: Default::default(),
             polyline: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
@@ -280,5 +324,81 @@ fn update_global_resources_system(
     for event in events.iter() {
         global_resources.resolution.x = event.width;
         global_resources.resolution.y = event.height;
+    }
+}
+
+/// A material with "standard" properties used in PBR lighting
+/// Standard property values with pictures here https://google.github.io/filament/Material%20Properties.pdf
+#[derive(Debug, RenderResources, ShaderDefs, TypeUuid)]
+#[uuid = "aa1438e6-9876-48cb-aaa4-d3d836f16eb0"]
+pub struct PolylinePbrMaterial {
+    /// Doubles as diffuse albedo for non-metallic, specular for metallic and a mix for everything
+    /// in between If used together with a base_color_texture, this is factored into the final
+    /// base color as `base_color * base_color_texture_value`
+    pub base_color: Color,
+    #[shader_def]
+    pub base_color_texture: Option<Handle<Texture>>,
+    /// Linear perceptual roughness, clamped to [0.089, 1.0] in the shader
+    /// Defaults to minimum of 0.089
+    /// If used together with a roughness/metallic texture, this is factored into the final base
+    /// color as `roughness * roughness_texture_value`
+    pub roughness: f32,
+    /// From [0.0, 1.0], dielectric to pure metallic
+    /// If used together with a roughness/metallic texture, this is factored into the final base
+    /// color as `metallic * metallic_texture_value`
+    pub metallic: f32,
+    /// Specular intensity for non-metals on a linear scale of [0.0, 1.0]
+    /// defaults to 0.5 which is mapped to 4% reflectance in the shader
+    #[shader_def]
+    pub metallic_roughness_texture: Option<Handle<Texture>>,
+    pub reflectance: f32,
+    #[shader_def]
+    pub normal_map: Option<Handle<Texture>>,
+    #[render_resources(ignore)]
+    #[shader_def]
+    pub double_sided: bool,
+    #[shader_def]
+    pub occlusion_texture: Option<Handle<Texture>>,
+    // Use a color for user friendliness even though we technically don't use the alpha channel
+    // Might be used in the future for exposure correction in HDR
+    pub emissive: Color,
+    #[shader_def]
+    pub emissive_texture: Option<Handle<Texture>>,
+    #[render_resources(ignore)]
+    #[shader_def]
+    pub unlit: bool,
+    pub width: f32,
+    #[render_resources(ignore)]
+    #[shader_def]
+    pub perspective: bool,
+}
+
+impl Default for PolylinePbrMaterial {
+    fn default() -> Self {
+        PolylinePbrMaterial {
+            base_color: Color::rgb(1.0, 1.0, 1.0),
+            base_color_texture: None,
+            // This is the minimum the roughness is clamped to in shader code
+            // See https://google.github.io/filament/Filament.html#materialsystem/parameterization/
+            // It's the minimum floating point value that won't be rounded down to 0 in the
+            // calculations used. Although technically for 32-bit floats, 0.045 could be
+            // used.
+            roughness: 0.089,
+            // Few materials are purely dielectric or metallic
+            // This is just a default for mostly-dielectric
+            metallic: 0.01,
+            // Minimum real-world reflectance is 2%, most materials between 2-5%
+            // Expressed in a linear scale and equivalent to 4% reflectance see https://google.github.io/filament/Material%20Properties.pdf
+            metallic_roughness_texture: None,
+            reflectance: 0.5,
+            normal_map: None,
+            double_sided: false,
+            occlusion_texture: None,
+            emissive: Color::BLACK,
+            emissive_texture: None,
+            unlit: false,
+            width: 1.0,
+            perspective: false,
+        }
     }
 }
