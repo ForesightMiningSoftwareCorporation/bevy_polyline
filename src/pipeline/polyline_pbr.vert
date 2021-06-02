@@ -47,8 +47,8 @@ void main() {
     vec2 screen0 = resolution * (0.5 * clip0.xy / clip0.w + 0.5);
     vec2 screen1 = resolution * (0.5 * clip1.xy / clip1.w + 0.5);
 
-    vec2 xBasis = normalize(screen1 - screen0);
-    vec2 yBasis = vec2(-xBasis.y, xBasis.x);
+    vec2 dir = normalize(screen1 - screen0);
+    vec2 perp = vec2(-dir.y, dir.x);
 
 #ifdef POLYLINEMATERIAL_PERSPECTIVE
     float width = width / clip.w;
@@ -58,14 +58,13 @@ void main() {
     }
 #endif
 
-    vec2 pt0 = screen0 + width * (position.x * xBasis + position.y * yBasis);
-    vec2 pt1 = screen1 + width * (position.x * xBasis + position.y * yBasis);
+    vec2 pt0 = screen0 + width * (position.x * dir + position.y * perp);
+    vec2 pt1 = screen1 + width * (position.x * dir + position.y * perp);
     vec2 pt = mix(pt0, pt1, position.z);
 
     gl_Position = vec4(clip.w * ((2.0 * pt) / resolution - 1.0), clip.z, clip.w);
     // Vertex_Color = color;
     v_WorldPosition = (inverse(ViewProj) * gl_Position).xyz;
-    float normal_y = sqrt(1 - v_Uv.x);
-    v_WorldNormal = mat3(Model) * vec3(position.y, normal_y, 0.0);
     v_Uv = vec2(position.y + 0.5, position.z);
+    v_WorldNormal = cross(vec3(I_Point1 - I_Point0), vec3(perp, 0));
 }
