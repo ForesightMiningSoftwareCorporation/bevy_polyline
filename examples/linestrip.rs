@@ -20,47 +20,98 @@ fn main() {
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut polyline_materials: ResMut<Assets<PolylineMaterial>>,
     mut polyline_pbr_materials: ResMut<Assets<PolylinePbrMaterial>>,
+    mut standard_materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands.spawn_bundle(PolylinePbrBundle {
-        polyline: Polyline {
-            vertices: vec![
-                Vec3::new(-0.5, 0.0, -0.5),
-                Vec3::new(0.5, 0.0, -0.5),
-                Vec3::new(0.5, 1.0, -0.5),
-                Vec3::new(-0.5, 1.0, -0.5),
-                Vec3::new(-0.5, 1.0, 0.5),
-                Vec3::new(0.5, 1.0, 0.5),
-                Vec3::new(0.5, 0.0, 0.5),
-                Vec3::new(-0.5, 0.0, 0.5),
-            ],
+            polyline: Polyline {
+                vertices: vec![
+                    Vec3::new(0.0, 0.0, 0.0),
+                    Vec3::new(0.5, 0.5, 0.0),
+                ],
+                ..Default::default()
+            },
+            render_pipelines: RenderPipelines {
+                pipelines: vec![new_polyline_pbr_pipeline(true)],
+                ..Default::default()
+            },
+            polyline_pbr_material: polyline_pbr_materials.add(PolylinePbrMaterial {
+                width: 15.0,
+                perspective: false,
+                base_color: Color::WHITE,
+                ..Default::default()
+            }),
             ..Default::default()
-        },
-        render_pipelines: RenderPipelines {
-            pipelines: vec![new_polyline_pbr_pipeline(true)],
-            ..Default::default()
-        },
-        polyline_pbr_material: polyline_pbr_materials.add(PolylinePbrMaterial {
-            width: 15.0,
-            perspective: true,
-            base_color: Color::WHITE,
-            ..Default::default()
-        }),
-        ..Default::default()
-    });
+        });
 
-    commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
-        material: standard_materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
-        ..Default::default()
-    });
+    // commands.spawn_bundle(PolylineBundle {
+    //     polyline: Polyline {
+    //         vertices: vec![
+    //             Vec3::new(-0.5, 0.0, -0.5),
+    //             Vec3::new(0.5, 0.0, -0.5),
+    //             Vec3::new(0.5, 1.0, -0.5),
+    //             Vec3::new(-0.5, 1.0, -0.5),
+    //             Vec3::new(-0.5, 1.0, 0.5),
+    //             Vec3::new(0.5, 1.0, 0.5),
+    //             Vec3::new(0.5, 0.0, 0.5),
+    //             Vec3::new(-0.5, 0.0, 0.5),
+    //         ],
+    //         ..Default::default()
+    //     },
+    //     render_pipelines: RenderPipelines {
+    //         pipelines: vec![new_polyline_pipeline(true)],
+    //         ..Default::default()
+    //     },
+    //     polyline_material: polyline_materials.add(PolylineMaterial {
+    //         width: 15.0,
+    //         perspective: false,
+    //         color: Color::RED,
+    //         ..Default::default()
+    //     }),
+    //     transform: Transform::from_xyz(2.0, 0.0, 0.0),
+    //     ..Default::default()
+    // });
+
+    // commands.spawn_bundle(PolylinePbrBundle {
+    //     polyline: Polyline {
+    //         vertices: vec![
+    //             Vec3::new(-0.5, 0.0, -0.5),
+    //             Vec3::new(0.5, 0.0, -0.5),
+    //             Vec3::new(0.5, 1.0, -0.5),
+    //             Vec3::new(-0.5, 1.0, -0.5),
+    //             Vec3::new(-0.5, 1.0, 0.5),
+    //             Vec3::new(0.5, 1.0, 0.5),
+    //             Vec3::new(0.5, 0.0, 0.5),
+    //             Vec3::new(-0.5, 0.0, 0.5),
+    //         ],
+    //         ..Default::default()
+    //     },
+    //     render_pipelines: RenderPipelines {
+    //         pipelines: vec![new_polyline_pbr_pipeline(true)],
+    //         ..Default::default()
+    //     },
+    //     polyline_pbr_material: polyline_pbr_materials.add(PolylinePbrMaterial {
+    //         width: 15.0,
+    //         perspective: false,
+    //         base_color: Color::WHITE,
+    //         ..Default::default()
+    //     }),
+    //     ..Default::default()
+    // });
+
+    // commands.spawn_bundle(PbrBundle {
+    //     mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
+    //     material: standard_materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+    //     ..Default::default()
+    // });
     // cube
-    commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: standard_materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..Default::default()
-    });
+    // commands.spawn_bundle(PbrBundle {
+    //     mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+    //     material: standard_materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+    //     transform: Transform::from_xyz(0.0, 0.5, 0.0),
+    //     ..Default::default()
+    // });
 
     // light
     commands.spawn_bundle(PointLightBundle {
@@ -71,10 +122,11 @@ fn setup(
     // camera
     commands
         .spawn_bundle(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(-2.0, 2.5, -5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            transform: Transform::from_xyz(0.0, 0.0, -5.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..PerspectiveCameraBundle::new_3d()
-        })
-        .insert(Rotates);
+        });
+        // })
+        // .insert(Rotates);
 }
 
 /// this component indicates what entities should rotate
