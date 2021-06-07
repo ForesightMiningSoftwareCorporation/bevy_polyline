@@ -52,13 +52,22 @@ void main() {
         { 0.5, 0.0, 0.0 }
     };
 
+    vec3[] normals = {
+        { 0.0, 0.0, -1.0 },
+        { 0.0, 0.0, -1.0 },
+        { 0.0, 0.0, -1.0 },
+        { 0.0, 0.0, -1.0 },
+        { 0.0, 0.0, -1.0 },
+        { 0.0, 0.0, -1.0 }
+    };
+
     vec3 vertex = vertices[gl_VertexIndex];
+    vec3 normal = normals[gl_VertexIndex];
 
     vec3 point = mix(I_Point0, I_Point1, vertex.y);
 
     // from https://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d/
     // TODO handle direction == -up
-    // TODO rotation incorrect when norm < 1???
     vec3 up = vec3(0.0, 1.0, 0.0);
     vec3 direction = I_Point1 - I_Point0;
     float norm = length(direction);
@@ -73,14 +82,10 @@ void main() {
     vertex.y *= norm;
     vec3 position = rotation * vertex + I_Point0;
 
-    // mat4 new_view_proj = ViewProj;
-    // new_view_proj[1] = vec4(0, 1, 0, 0);
-    // vec4 final_position = new_view_proj * Model * vec4(position, 1.0);
-
     vec4 final_position = ViewProj * Model * vec4(position, 1.0);
 
     v_WorldPosition = vec3(0.0);
-    v_WorldNormal = vec3(0.0);
+    v_WorldNormal = mat3(Model) * rotation * normal;
     v_Uv = vec2(0.0);
     gl_Position = final_position;
 
