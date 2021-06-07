@@ -73,7 +73,6 @@ void main() {
     float norm = length(direction);
     direction = direction / norm;
     vec3 v = cross(up, direction);
-    // float s = length(v);
     float c = dot(up, direction);
     mat3 identity = mat3(1, 0, 0, 0, 1, 0, 0, 0, 1);
     mat3 vx = mat3(0, v.z, -v.y, -v.z, 0, v.x, v.y, -v.x, 0);
