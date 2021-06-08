@@ -68,47 +68,70 @@ void main() {
     vec3 vertex = vertices[gl_VertexIndex];
     vec3 normal = normals[gl_VertexIndex];
 
-    vec3 point = mix(I_Point0, I_Point1, vertex.y);
+    vec4 point0 = Model * vec4(I_Point0, 1.0);
+    vec4 point1 = Model * vec4(I_Point1, 1.0);
+    vec4 point = mix(point0, point1, vertex.y);
 
-    // from https://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d/
-    // TODO handle direction == -up
-    vec3 up = vec3(0.0, 1.0, 0.0);
-    vec3 direction = I_Point1 - I_Point0;
+    vec3 direction = (point1 - point0).xyz;
     float norm = length(direction);
-    direction = direction / norm;
-    vec3 v = cross(up, direction);
-    float c = dot(up, direction);
-    mat3 identity = mat3(1, 0, 0, 0, 1, 0, 0, 0, 1);
-    mat3 vx = mat3(0, v.z, -v.y, -v.z, 0, v.x, v.y, -v.x, 0);
-    mat3 rotation = identity + vx + matrix_dot(vx, vx) * 1 / (1 + c);
+    direction /= norm;
 
-    vec3 scale = vec3(1, norm, 1);
-    vec3 translation = I_Point0;
+    vec3 view = normalize(point.xyz - CameraPos.xyz);
+    vec3 up = direction;
+    vec3 right = cross(view, up);
+    vec3 forward = cross(up, right);
+    // up = cross(forward, right);
+
+    float width = 0.5;
+    mat3 billboard_matrix = mat3(right * width, up, forward);
+    // mat4 billboard_matrix = mat4(vec4(right * width, 0.0), vec4(up * norm, 0.0), vec4(forward, 0.0), point0);
+    // mat4 billboard_matrix = mat4(vec4(right, 0.0), vec4(up, 0.0), vec4(forward, 0.0), point0);
+    // vec4 position = vec4(billboard_matrix * point);
+    vec3 position = billboard_matrix * vertex + point.xyz;
+    v_WorldPosition = position.xyz;
+    v_WorldNormal = mat3(Model) * mat3(billboard_matrix) * normal;
+    v_Uv = vec2(0);
+    gl_Position = ViewProj * vec4(position, 1.0);
+
+    // // from https://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d/
+    // // TODO handle direction == -up
+    // vec3 up = vec3(0.0, 1.0, 0.0);
+    // vec3 direction = I_Point1 - I_Point0;
+    // float norm = length(direction);
+    // direction = direction / norm;
+    // vec3 v = cross(up, direction);
+    // float c = dot(up, direction);
+    // mat3 identity = mat3(1, 0, 0, 0, 1, 0, 0, 0, 1);
+    // mat3 vx = mat3(0, v.z, -v.y, -v.z, 0, v.x, v.y, -v.x, 0);
+    // mat3 rotation = identity + vx + matrix_dot(vx, vx) * 1 / (1 + c);
+
+    // vec3 scale = vec3(1, norm, 1);
+    // vec3 translation = I_Point0;
+    // // vec3 position = rotation * (scale * vertex) + translation;
     // vec3 position = rotation * (scale * vertex) + translation;
-    vec3 position = rotation * (scale * vertex) + translation;
 
-    position = (Model * vec4(position, 1.0)).xyz;
+    // position = (Model * vec4(position, 1.0)).xyz;
 
-    v_WorldPosition = position;
-    v_WorldNormal = mat3(Model) * rotation * normal;
-    v_Uv = vec2(0.0);
+    // v_WorldPosition = position;
+    // v_WorldNormal = mat3(Model) * rotation * normal;
+    // v_Uv = vec2(0.0);
 
-    vec3 billboard_axis = mat3(Model) * direction;
-    // vec3 billboard_axis = normalize(mat3(ViewProj) * direction);
-    // vec3 billboard_axis = up;
+    // vec3 billboard_axis = mat3(Model) * direction;
+    // // vec3 billboard_axis = normalize(mat3(ViewProj) * direction);
+    // // vec3 billboard_axis = up;
 
-    vec3 view_direction = normalize(position - CameraPos.xyz);
-    vec3 right = cross(view_direction, billboard_axis);
-    view_direction = cross(right, billboard_axis);
-    billboard_axis = cross(view_direction, right);
+    // vec3 view_direction = normalize(position - CameraPos.xyz);
+    // vec3 right = cross(view_direction, billboard_axis);
+    // view_direction = cross(right, billboard_axis);
+    // billboard_axis = cross(view_direction, right);
 
-    mat3 billboard_rotation = mat3(right, billboard_axis, view_direction);
-    // mat3 billboard_rotation = transpose(mat3(right, billboard_axis, view_direction));
-    // mat3 billboard_rotation = identity;
+    // mat3 billboard_rotation = mat3(right, billboard_axis, view_direction);
+    // // mat3 billboard_rotation = transpose(mat3(right, billboard_axis, view_direction));
+    // // mat3 billboard_rotation = identity;
 
-    vec4 clip = ViewProj * vec4(billboard_rotation * position, 1.0);
-    vec4 ndc = vec4(clip.xyz / clip.w, 1 / clip.w);
-    gl_Position = clip;
+    // vec4 clip = ViewProj * vec4(billboard_rotation * position, 1.0);
+    // vec4 ndc = vec4(clip.xyz / clip.w, 1 / clip.w);
+    // gl_Position = clip;
 
     //         vec3[] positions = {
     //         { 0.0, -0.5, 0.0 },
