@@ -78,8 +78,9 @@ void main() {
     mat3 vx = mat3(0, v.z, -v.y, -v.z, 0, v.x, v.y, -v.x, 0);
     mat3 rotation = identity + vx + matrix_dot(vx, vx) * 1 / (1 + c);
 
-    vertex.y *= norm;
-    vec3 position = rotation * vertex + I_Point0;
+    vec3 scale = vec3(1, norm, 1);
+    vec3 translation = I_Point0;
+    vec3 position = rotation * (scale * vertex) + translation;
 
     vec4 final_position = ViewProj * Model * vec4(position, 1.0);
 
