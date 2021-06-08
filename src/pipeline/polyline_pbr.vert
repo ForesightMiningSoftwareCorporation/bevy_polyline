@@ -11,6 +11,10 @@ layout(set = 0, binding = 0) uniform CameraViewProj {
     mat4 ViewProj;
 };
 
+layout(std140, set = 0, binding = 1) uniform CameraPosition {
+    vec4 CameraPos;
+};
+
 #ifdef STANDARDMATERIAL_NORMAL_MAP
 layout(location = 3) out vec4 v_WorldTangent;
 #endif
@@ -80,14 +84,31 @@ void main() {
 
     vec3 scale = vec3(1, norm, 1);
     vec3 translation = I_Point0;
+    // vec3 position = rotation * (scale * vertex) + translation;
     vec3 position = rotation * (scale * vertex) + translation;
 
-    vec4 final_position = ViewProj * Model * vec4(position, 1.0);
+    position = (Model * vec4(position, 1.0)).xyz;
 
-    v_WorldPosition = vec3(0.0);
+    v_WorldPosition = position;
     v_WorldNormal = mat3(Model) * rotation * normal;
     v_Uv = vec2(0.0);
-    gl_Position = final_position;
+
+    vec3 billboard_axis = mat3(Model) * direction;
+    // vec3 billboard_axis = normalize(mat3(ViewProj) * direction);
+    // vec3 billboard_axis = up;
+
+    vec3 view_direction = normalize(position - CameraPos.xyz);
+    vec3 right = cross(view_direction, billboard_axis);
+    view_direction = cross(right, billboard_axis);
+    billboard_axis = cross(view_direction, right);
+
+    mat3 billboard_rotation = mat3(right, billboard_axis, view_direction);
+    // mat3 billboard_rotation = transpose(mat3(right, billboard_axis, view_direction));
+    // mat3 billboard_rotation = identity;
+
+    vec4 clip = ViewProj * vec4(billboard_rotation * position, 1.0);
+    vec4 ndc = vec4(clip.xyz / clip.w, 1 / clip.w);
+    gl_Position = clip;
 
     //         vec3[] positions = {
     //         { 0.0, -0.5, 0.0 },
