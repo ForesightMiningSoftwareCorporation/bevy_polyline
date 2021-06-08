@@ -74,20 +74,24 @@ void main() {
 
     vec3 direction = (point1 - point0).xyz;
     float norm = length(direction);
-    direction /= norm;
+    direction = direction / norm;
 
     vec3 view = normalize(point.xyz - CameraPos.xyz);
     vec3 up = direction;
-    vec3 right = cross(view, up);
+    vec3 right = normalize(cross(view, up));
     vec3 forward = cross(up, right);
-    // up = cross(forward, right);
+    // up = normalize(cross(right, forward));
 
-    float width = 0.5;
-    mat3 billboard_matrix = mat3(right * width, up, forward);
+    // float width = width * (resolution.y / resolution.x) / (ViewProj * point).w;
+    float width = width * (ViewProj * point).w / resolution.y;
+    // float width = width / (ViewProj * point).w;
+    // float width = 1.0;
+    // mat3 billboard_matrix = mat3(right * width, up / norm, forward);
+    mat3 billboard_matrix = mat3(right * width, up * norm, forward);
     // mat4 billboard_matrix = mat4(vec4(right * width, 0.0), vec4(up * norm, 0.0), vec4(forward, 0.0), point0);
     // mat4 billboard_matrix = mat4(vec4(right, 0.0), vec4(up, 0.0), vec4(forward, 0.0), point0);
     // vec4 position = vec4(billboard_matrix * point);
-    vec3 position = billboard_matrix * vertex + point.xyz;
+    vec3 position = billboard_matrix * vertex + point0.xyz;
     v_WorldPosition = position.xyz;
     v_WorldNormal = mat3(Model) * mat3(billboard_matrix) * normal;
     v_Uv = vec2(0);
