@@ -25,38 +25,26 @@ fn setup(
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands.spawn_bundle(PolylinePbrBundle {
-            polyline: Polyline {
-                vertices: vec![
-                    Vec3::new(0.0, 0.0, 0.0),
-                    Vec3::new(0.5, 0.5, 0.0),
-                ],
-                ..Default::default()
-            },
-            render_pipelines: RenderPipelines {
-                pipelines: vec![new_polyline_pbr_pipeline(true)],
-                ..Default::default()
-            },
-            polyline_pbr_material: polyline_pbr_materials.add(PolylinePbrMaterial {
-                width: 15.0,
-                perspective: false,
-                base_color: Color::WHITE,
-                ..Default::default()
-            }),
+        polyline: Polyline {
+            vertices: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(5.0, 5.0, 0.0)],
             ..Default::default()
-        });
+        },
+        render_pipelines: RenderPipelines {
+            pipelines: vec![new_polyline_pbr_pipeline(true)],
+            ..Default::default()
+        },
+        polyline_pbr_material: polyline_pbr_materials.add(PolylinePbrMaterial {
+            width: 250.0,
+            perspective: false,
+            base_color: Color::WHITE,
+            ..Default::default()
+        }),
+        ..Default::default()
+    });
 
     // commands.spawn_bundle(PolylineBundle {
     //     polyline: Polyline {
-    //         vertices: vec![
-    //             Vec3::new(-0.5, 0.0, -0.5),
-    //             Vec3::new(0.5, 0.0, -0.5),
-    //             Vec3::new(0.5, 1.0, -0.5),
-    //             Vec3::new(-0.5, 1.0, -0.5),
-    //             Vec3::new(-0.5, 1.0, 0.5),
-    //             Vec3::new(0.5, 1.0, 0.5),
-    //             Vec3::new(0.5, 0.0, 0.5),
-    //             Vec3::new(-0.5, 0.0, 0.5),
-    //         ],
+    //         vertices: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(5.0, 5.0, 0.0)],
     //         ..Default::default()
     //     },
     //     render_pipelines: RenderPipelines {
@@ -64,12 +52,12 @@ fn setup(
     //         ..Default::default()
     //     },
     //     polyline_material: polyline_materials.add(PolylineMaterial {
-    //         width: 15.0,
+    //         width: 250.0,
     //         perspective: false,
     //         color: Color::RED,
     //         ..Default::default()
     //     }),
-    //     transform: Transform::from_xyz(2.0, 0.0, 0.0),
+    //     transform: Transform::from_xyz(0.0, 0.0, 0.0),
     //     ..Default::default()
     // });
 
@@ -115,18 +103,18 @@ fn setup(
 
     // light
     commands.spawn_bundle(PointLightBundle {
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
+        transform: Transform::from_xyz(0.0, 8.0, 0.0),
         ..Default::default()
     });
 
     // camera
     commands
         .spawn_bundle(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(0.0, 0.0, -5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            transform: Transform::from_xyz(0.0, 1.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..PerspectiveCameraBundle::new_3d()
-        });
-        // })
-        // .insert(Rotates);
+        })
+        .insert(Rotates);
+    // });
 }
 
 /// this component indicates what entities should rotate

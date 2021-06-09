@@ -370,31 +370,31 @@ void main() {
 
     vec3 N = normalize(v_WorldNormal);
 
-#    ifdef PolylinePbrMaterial_NORMAL_MAP
+#    ifdef POLYLINEPBRMATERIAL_NORMAL_MAP
     vec3 T = normalize(v_WorldTangent.xyz);
     vec3 B = cross(N, T) * v_WorldTangent.w;
 #    endif
 
-#    ifdef PolylinePbrMaterial_DOUBLE_SIDED
+#    ifdef POLYLINEPBRMATERIAL_DOUBLE_SIDED
     N = gl_FrontFacing ? N : -N;
-#        ifdef PolylinePbrMaterial_NORMAL_MAP
+#        ifdef POLYLINEPBRMATERIAL_NORMAL_MAP
     T = gl_FrontFacing ? T : -T;
     B = gl_FrontFacing ? B : -B;
 #        endif
 #    endif
 
-#    ifdef PolylinePbrMaterial_NORMAL_MAP
+#    ifdef POLYLINEPBRMATERIAL_NORMAL_MAP
     mat3 TBN = mat3(T, B, N);
     N = TBN * normalize(texture(sampler2D(PolylinePbrMaterial_normal_map, PolylinePbrMaterial_normal_map_sampler), v_Uv).rgb * 2.0 - 1.0);
 #    endif
 
-#    ifdef PolylinePbrMaterial_OCCLUSION_TEXTURE
+#    ifdef POLYLINEPBRMATERIAL_OCCLUSION_TEXTURE
     float occlusion = texture(sampler2D(PolylinePbrMaterial_occlusion_texture, PolylinePbrMaterial_occlusion_texture_sampler), v_Uv).r;
 #    else
     float occlusion = 1.0;
 #    endif
 
-#    ifdef PolylinePbrMaterial_EMISSIVE_TEXTURE
+#    ifdef POLYLINEPBRMATERIAL_EMISSIVE_TEXTURE
     vec4 emissive = emissive;
     // TODO use .a for exposure compensation in HDR
     emissive.rgb *= texture(sampler2D(PolylinePbrMaterial_emissive_texture, PolylinePbrMaterial_emissive_texture_sampler), v_Uv).rgb;

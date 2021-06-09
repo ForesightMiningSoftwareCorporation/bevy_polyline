@@ -35,19 +35,47 @@ void main() {
     vec3[] vertices = {
         { -0.5, 0.0, 0.0 },
         { -0.5, 1.0, 0.0 },
-        { 0.5, 1.0, 0.0 },
+        { -0.25, 1.0, -0.433 },
         { -0.5, 0.0, 0.0 },
+        { -0.25, 1.0, -0.433 },
+        { -0.25, 0.0, -0.433 },
+
+        { -0.25, 0.0, -0.433 },
+        { -0.25, 1.0, -0.433 },
+        { 0.25, 1.0, -0.433 },
+        { -0.25, 0.0, -0.433 },
+        { 0.25, 1.0, -0.433 },
+        { 0.25, 0.0, -0.433 },
+
+        { 0.25, 0.0, -0.433 },
+        { 0.25, 1.0, -0.433 },
+        { 0.5, 1.0, 0.0 },
+        { 0.25, 0.0, -0.433 },
         { 0.5, 1.0, 0.0 },
         { 0.5, 0.0, 0.0 }
     };
 
     vec3[] normals = {
+        { -0.866, 0.0, -0.5 },
+        { -0.866, 0.0, -0.5 },
+        { -0.866, 0.0, -0.5 },
+        { -0.866, 0.0, -0.5 },
+        { -0.866, 0.0, -0.5 },
+        { -0.866, 0.0, -0.5 },
+
         { 0.0, 0.0, -1.0 },
         { 0.0, 0.0, -1.0 },
         { 0.0, 0.0, -1.0 },
         { 0.0, 0.0, -1.0 },
         { 0.0, 0.0, -1.0 },
-        { 0.0, 0.0, -1.0 }
+        { 0.0, 0.0, -1.0 },
+
+        { 0.866, 0.0, -0.5 },
+        { 0.866, 0.0, -0.5 },
+        { 0.866, 0.0, -0.5 },
+        { 0.866, 0.0, -0.5 },
+        { 0.866, 0.0, -0.5 },
+        { 0.866, 0.0, -0.5 }
     };
 
     vec3 vertex = vertices[gl_VertexIndex];
@@ -71,7 +99,8 @@ void main() {
 #ifndef POLYLINEPBRMATERIAL_PERSPECTIVE
     width = width * (ViewProj * point).w;
 #endif
-    mat3 billboard_matrix = mat3(right * width, up * norm, forward);
+    // TODO get right of / 1.2 which is a workaround for a bug.
+    mat3 billboard_matrix = mat3(right * width / 1.2, up * norm, forward);
     vec3 position = billboard_matrix * vertex + point0.xyz;
     v_WorldPosition = position.xyz;
     v_WorldNormal = mat3(Model) * mat3(billboard_matrix) * normal;
