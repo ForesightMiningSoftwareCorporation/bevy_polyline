@@ -27,12 +27,12 @@ layout(set = 3, binding = 0) uniform GlobalResources_resolution {
 
 void main() {
     vec3[] positions = {
-        {0.0, -0.5, 0.0},
-        {0.0, -0.5, 1.0},
-        {0.0, 0.5, 1.0},
-        {0.0, -0.5, 0.0},
-        {0.0, 0.5, 1.0},
-        {0.0, 0.5, 0.0}
+        { 0.0, -0.5, 0.0 },
+        { 0.0, -0.5, 1.0 },
+        { 0.0, 0.5, 1.0 },
+        { 0.0, -0.5, 0.0 },
+        { 0.0, 0.5, 1.0 },
+        { 0.0, 0.5, 0.0 }
     };
 
     vec3 position = positions[gl_VertexIndex];
@@ -42,13 +42,13 @@ void main() {
     vec4 clip1 = ViewProj * Model * vec4(I_Point1, 1);
     vec4 clip = mix(clip0, clip1, position.z);
 
-    vec2 screen0 = resolution * (0.5 * clip0.xy/clip0.w + 0.5);
-    vec2 screen1 = resolution * (0.5 * clip1.xy/clip1.w + 0.5);
+    vec2 screen0 = resolution * (0.5 * clip0.xy / clip0.w + 0.5);
+    vec2 screen1 = resolution * (0.5 * clip1.xy / clip1.w + 0.5);
 
     vec2 xBasis = normalize(screen1 - screen0);
     vec2 yBasis = vec2(-xBasis.y, xBasis.x);
 
-    #ifdef POLYLINEMATERIAL_PERSPECTIVE
+#ifdef POLYLINEMATERIAL_PERSPECTIVE
     vec4 color = color;
     float width = width / clip.w;
     // Line thinness fade from https://acegikmo.com/shapes/docs/#anti-aliasing
@@ -56,7 +56,7 @@ void main() {
         color.a *= width;
         width = 1.0;
     }
-    #endif
+#endif
 
     vec2 pt0 = screen0 + width * (position.x * xBasis + position.y * yBasis);
     vec2 pt1 = screen1 + width * (position.x * xBasis + position.y * yBasis);
