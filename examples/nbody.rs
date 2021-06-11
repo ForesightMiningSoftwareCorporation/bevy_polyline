@@ -16,22 +16,22 @@ fn main() {
     let mut app = App::build();
 
     app.insert_resource(WindowDescriptor {
-            vsync: true,
-            ..Default::default()
-        })
-        .insert_resource(ClearColor(Color::BLACK))
-        .insert_resource(Msaa { samples: 4 })
-        .insert_resource(Simulation {
-            scale: 1e5,
-            ..Default::default()
-        })
-        .add_plugins(DefaultPlugins)
-        .add_plugin(PolylinePlugin)
-        .add_startup_system(setup.system())
-        .add_system(nbody_system.system())
-        .add_system(rotator_system.system())
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugin(LogDiagnosticsPlugin::default());
+        vsync: true,
+        ..Default::default()
+    })
+    .insert_resource(ClearColor(Color::BLACK))
+    .insert_resource(Msaa { samples: 4 })
+    .insert_resource(Simulation {
+        scale: 1e5,
+        ..Default::default()
+    })
+    .add_plugins(DefaultPlugins)
+    .add_plugin(PolylinePlugin)
+    .add_startup_system(setup.system())
+    .add_system(nbody_system.system())
+    .add_system(rotator_system.system())
+    .add_plugin(FrameTimeDiagnosticsPlugin::default())
+    .add_plugin(LogDiagnosticsPlugin::default());
 
     app.run();
 }
