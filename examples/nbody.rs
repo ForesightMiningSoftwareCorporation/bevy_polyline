@@ -199,11 +199,11 @@ fn nbody_system(
                     > MINIMUM_LINE_SEGMENT_LENGTH_SQUARED
                 {
                     trail.push(body.position);
-                    polyline.vertices = trail.to_vec();
+                    polyline.vertices = trail.iter().map(|vec3| vec3.extend(0.0)).collect();
                 }
             } else {
                 trail.push(body.position);
-                polyline.vertices = trail.to_vec();
+                polyline.vertices = trail.iter().map(|vec3| vec3.extend(0.0)).collect();
             }
         });
 }

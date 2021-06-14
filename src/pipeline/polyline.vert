@@ -1,8 +1,5 @@
 #version 450
 
-layout(location = 0) in vec3 I_Point0;
-layout(location = 1) in vec3 I_Point1;
-
 layout(location = 0) out vec4 Vertex_Color;
 
 layout(set = 0, binding = 0) uniform CameraViewProj {
@@ -11,6 +8,10 @@ layout(set = 0, binding = 0) uniform CameraViewProj {
 
 layout(set = 1, binding = 0) uniform Transform {
     mat4 Model;
+};
+
+layout(set = 1, binding = 1) buffer PolyLine_Vertices {
+    vec4[] vertices;
 };
 
 layout(set = 2, binding = 0) uniform PolylineMaterial_width {
@@ -35,11 +36,17 @@ void main() {
         { 0.0, 0.5, 0.0 }
     };
 
-    vec3 position = positions[gl_VertexIndex];
+    int instance_index = gl_VertexIndex / 6;
+    int instance_vertex_index = gl_VertexIndex % 6;
+
+    vec3 position = positions[instance_vertex_index];
+
+    vec3 point0 = vertices[instance_index].xyz;
+    vec3 point1 = vertices[instance_index + 1].xyz;
 
     // algorithm based on https://wwwtyro.net/2019/11/18/instanced-lines.html
-    vec4 clip0 = ViewProj * Model * vec4(I_Point0, 1);
-    vec4 clip1 = ViewProj * Model * vec4(I_Point1, 1);
+    vec4 clip0 = ViewProj * Model * vec4(point0, 1);
+    vec4 clip1 = ViewProj * Model * vec4(point1, 1);
     vec4 clip = mix(clip0, clip1, position.z);
 
     vec2 screen0 = resolution * (0.5 * clip0.xy / clip0.w + 0.5);

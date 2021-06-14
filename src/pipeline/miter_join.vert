@@ -1,10 +1,6 @@
 #version 450
 
-layout(location = 0) in vec3 I_Point0;
-layout(location = 1) in vec3 I_Point1;
-layout(location = 2) in vec3 I_Point2;
-
-layout(location=0) out vec4 Vertex_Color;
+layout(location = 0) out vec4 Vertex_Color;
 
 layout(set = 0, binding = 0) uniform CameraViewProj {
     mat4 ViewProj;
@@ -12,6 +8,10 @@ layout(set = 0, binding = 0) uniform CameraViewProj {
 
 layout(set = 1, binding = 0) uniform Transform {
     mat4 Model;
+};
+
+layout(set = 1, binding = 1) buffer PolyLine_Vertices {
+    vec4[] vertices;
 };
 
 layout(set = 2, binding = 0) uniform PolylineMaterial_width {
@@ -28,24 +28,31 @@ layout(set = 3, binding = 0) uniform GlobalResources_resolution {
 
 void main() {
     vec3[] positions = {
-        {0.0, 0.0, 0.0},
-        {1.0, 0.0, 0.0},
-        {0.0, 1.0, 0.0},
-        {0.0, 0.0, 0.0},
-        {0.0, 1.0, 0.0},
-        {0.0, 0.0, 1.0}
+        { 0.0, 0.0, 0.0 },
+        { 1.0, 0.0, 0.0 },
+        { 0.0, 1.0, 0.0 },
+        { 0.0, 0.0, 0.0 },
+        { 0.0, 1.0, 0.0 },
+        { 0.0, 0.0, 1.0 }
     };
 
-    vec3 position = positions[gl_VertexIndex];
+    int instance_index = gl_VertexIndex / 6;
+    int instance_vertex_index = gl_VertexIndex % 6;
+
+    vec3 position = positions[instance_vertex_index];
+
+    vec3 point0 = vertices[instance_index].xyz;
+    vec3 point1 = vertices[instance_index + 1].xyz;
+    vec3 point2 = vertices[instance_index + 2].xyz;
 
     // algorithm based on https://wwwtyro.net/2019/11/18/instanced-lines.html
-    vec4 clip0 = ViewProj * Model * vec4(I_Point0, 1);
-    vec4 clip1 = ViewProj * Model * vec4(I_Point1, 1);
-    vec4 clip2 = ViewProj * Model * vec4(I_Point2, 1);
+    vec4 clip0 = ViewProj * Model * vec4(point0, 1);
+    vec4 clip1 = ViewProj * Model * vec4(point1, 1);
+    vec4 clip2 = ViewProj * Model * vec4(point2, 1);
 
-    vec2 screen0 = resolution * (0.5 * clip0.xy/clip0.w + 0.5);
-    vec2 screen1 = resolution * (0.5 * clip1.xy/clip1.w + 0.5);
-    vec2 screen2 = resolution * (0.5 * clip2.xy/clip2.w + 0.5);
+    vec2 screen0 = resolution * (0.5 * clip0.xy / clip0.w + 0.5);
+    vec2 screen1 = resolution * (0.5 * clip1.xy / clip1.w + 0.5);
+    vec2 screen2 = resolution * (0.5 * clip2.xy / clip2.w + 0.5);
 
     vec2 tangent = normalize(normalize(screen2 - screen1) + normalize(screen1 - screen0));
     vec2 miter = vec2(-tangent.y, tangent.x);
@@ -57,7 +64,7 @@ void main() {
 
     float sigma = sign(dot(ab + cb, miter));
 
-    #ifdef POLYLINEMATERIAL_PERSPECTIVE
+#ifdef POLYLINEMATERIAL_PERSPECTIVE
     vec4 color = color;
     float width = width / clip1.w;
     // Line thinness fade from https://acegikmo.com/shapes/docs/#anti-aliasing
@@ -65,7 +72,7 @@ void main() {
         color.a *= width;
         width = 1.0;
     }
-    #endif
+#endif
 
     vec2 p0 = 0.5 * width * sigma * (sigma < 0.0 ? abNorm : cbNorm);
     // TODO improve singularity case

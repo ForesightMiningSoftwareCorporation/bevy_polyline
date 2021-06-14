@@ -18,31 +18,9 @@ const POLYLINE_PIPELINE_HANDLE: HandleUntyped =
 const MITER_JOIN_PIPELINE_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 0x468f1a2db6e312a);
 
-pub fn new_polyline_pipeline(striped: bool) -> RenderPipeline {
+pub fn new_polyline_pipeline() -> RenderPipeline {
     RenderPipeline {
         pipeline: POLYLINE_PIPELINE_HANDLE.typed().clone_weak(),
-        specialization: PipelineSpecialization {
-            vertex_buffer_layout: VertexBufferLayout {
-                name: "Polyline".into(),
-                stride: if striped { 12 } else { 24 },
-                step_mode: InputStepMode::Instance,
-                attributes: vec![
-                    VertexAttribute {
-                        name: "I_Point0".into(),
-                        format: VertexFormat::Float32x3,
-                        offset: 0,
-                        shader_location: 0,
-                    },
-                    VertexAttribute {
-                        name: "I_Point1".into(),
-                        format: VertexFormat::Float32x3,
-                        offset: 12,
-                        shader_location: 1,
-                    },
-                ],
-            },
-            ..Default::default()
-        },
         ..Default::default()
     }
 }
@@ -83,34 +61,6 @@ fn build_polyline_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
 pub fn new_miter_join_pipeline() -> RenderPipeline {
     RenderPipeline {
         pipeline: MITER_JOIN_PIPELINE_HANDLE.typed().clone_weak(),
-        specialization: PipelineSpecialization {
-            vertex_buffer_layout: VertexBufferLayout {
-                name: "Polyline".into(),
-                stride: 12, // joined lines are always striped
-                step_mode: InputStepMode::Instance,
-                attributes: vec![
-                    VertexAttribute {
-                        name: "I_Point0".into(),
-                        format: VertexFormat::Float32x3,
-                        offset: 0,
-                        shader_location: 0,
-                    },
-                    VertexAttribute {
-                        name: "I_Point1".into(),
-                        format: VertexFormat::Float32x3,
-                        offset: 12,
-                        shader_location: 1,
-                    },
-                    VertexAttribute {
-                        name: "I_Point2".into(),
-                        format: VertexFormat::Float32x3,
-                        offset: 24,
-                        shader_location: 2,
-                    },
-                ],
-            },
-            ..Default::default()
-        },
         ..Default::default()
     }
 }

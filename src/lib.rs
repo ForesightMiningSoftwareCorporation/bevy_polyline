@@ -1,7 +1,7 @@
 use bevy::{
-    core::cast_slice,
+    core::{bytes_of, cast_slice},
     ecs::{reflect::ReflectComponent, system::IntoSystem},
-    math::{Vec2, Vec3},
+    math::{Vec2, Vec3, Vec4},
     prelude::{
         AddAsset, Assets, Changed, Color, Draw, EventReader, GlobalTransform, Handle, Msaa, Query,
         RenderPipelines, Res, ResMut, Shader, Transform, Without,
@@ -15,7 +15,8 @@ use bevy::{
             AssetRenderResourcesNode, RenderGraph,
         },
         renderer::{
-            BufferInfo, BufferUsage, RenderResourceBindings, RenderResourceContext, RenderResources,
+            BufferInfo, BufferUsage, RenderResourceBinding, RenderResourceBindings,
+            RenderResourceContext, RenderResources,
         },
         shader::ShaderDefs,
         RenderStage,
@@ -149,24 +150,11 @@ fn polyline_draw_render_pipelines_system(
             draw_context
                 .set_bind_groups_from_bindings(&mut draw, render_resource_bindings)
                 .unwrap();
-            draw_context
-                .set_vertex_buffers_from_bindings(&mut draw, &[&render_pipelines.bindings])
-                .unwrap();
 
-            // calculate how many instances this shader needs to render
-            let num_vertices = polyline.vertices.len() as u32;
-            let stride = render_pipeline.specialization.vertex_buffer_layout.stride as u32;
-            let num_attributes = render_pipeline
-                .specialization
-                .vertex_buffer_layout
-                .attributes
-                .len() as u32;
-            if (num_attributes - 1) > num_vertices / (stride / 12) {
-                continue;
-            }
-            let num_instances = num_vertices / (stride / 12) - (num_attributes - 1);
+            // TODO handle striped and non-striped line
+            let num_line_segments = polyline.vertices.len().max(1) as u32 - 1;
 
-            draw.draw(0..6, 0..num_instances)
+            draw.draw(0..num_line_segments * 6, 0..1)
         }
     }
 }
@@ -188,26 +176,34 @@ pub fn polyline_resource_provider_system(
             return;
         }
 
+        let data = cast_slice(polyline.vertices.as_slice());
+
         let buffer_id = render_resource_context.create_buffer_with_data(
             BufferInfo {
-                size: std::mem::size_of_val(&polyline.vertices),
-                buffer_usage: BufferUsage::VERTEX | BufferUsage::COPY_DST,
+                size: data.len(),
+                buffer_usage: BufferUsage::STORAGE,
                 mapped_at_creation: false,
             },
-            cast_slice(polyline.vertices.as_slice()),
+            data,
         );
 
-        render_pipelines
-            .bindings
-            .vertex_attribute_buffer
-            .replace(buffer_id);
+        // dbg!(data.len());
+
+        render_pipelines.bindings.set(
+            "PolyLine_Vertices",
+            RenderResourceBinding::Buffer {
+                buffer: buffer_id,
+                range: 0..data.len() as u64,
+                dynamic_index: None,
+            },
+        );
     });
 }
 
 #[derive(Debug, Default, Reflect)]
 #[reflect(Component)]
 pub struct Polyline {
-    pub vertices: Vec<Vec3>,
+    pub vertices: Vec<Vec4>,
 }
 
 #[derive(Reflect, RenderResources, ShaderDefs, TypeUuid)]
@@ -253,7 +249,7 @@ impl Default for PolylineBundle {
             visible: Default::default(),
             draw: Default::default(),
             render_pipelines: RenderPipelines::from_pipelines(vec![
-                pipeline::new_polyline_pipeline(true),
+                pipeline::new_polyline_pipeline(),
                 pipeline::new_miter_join_pipeline(),
             ]),
             main_pass: MainPass,
