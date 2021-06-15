@@ -1,10 +1,10 @@
 use bevy::{
-    core::{bytes_of, cast_slice},
+    core::{bytes_of, cast_slice, Bytes},
     ecs::{reflect::ReflectComponent, system::IntoSystem},
     math::{Vec2, Vec3, Vec4},
     prelude::{
-        AddAsset, Assets, Changed, Color, Draw, EventReader, GlobalTransform, Handle, Msaa, Query,
-        RenderPipelines, Res, ResMut, Shader, Transform, Without,
+        AddAsset, Assets, Changed, Color, DetectChanges, Draw, EventReader, GlobalTransform,
+        Handle, Msaa, Query, RenderPipelines, Res, ResMut, Shader, Transform, Without, World,
     },
     reflect::{Reflect, TypeUuid},
     render::{
@@ -12,11 +12,11 @@ use bevy::{
         pipeline::PipelineDescriptor,
         render_graph::{
             base::{self, MainPass},
-            AssetRenderResourcesNode, RenderGraph,
+            AssetRenderResourcesNode, CommandQueue, Node, RenderGraph, ResourceSlots,
         },
         renderer::{
-            BufferInfo, BufferUsage, RenderResourceBinding, RenderResourceBindings,
-            RenderResourceContext, RenderResources,
+            BufferId, BufferInfo, BufferUsage, RenderContext, RenderResourceBinding,
+            RenderResourceBindings, RenderResourceContext, RenderResources,
         },
         shader::ShaderDefs,
         RenderStage,
@@ -37,6 +37,7 @@ use global_render_resources_node::GlobalRenderResourcesNode;
 pub mod node {
     pub const POLYLINE_MATERIAL_NODE: &str = "polyline_material_node";
     pub const GLOBAL_RENDER_RESOURCES_NODE: &str = "global_render_resources_node";
+    pub const POLYLINE_BUFFERS_NODE: &str = "polyline_buffers_node";
 }
 
 pub struct PolylinePlugin;
@@ -46,6 +47,7 @@ impl Plugin for PolylinePlugin {
         app.add_asset::<PolylineMaterial>()
             .register_type::<Polyline>()
             .insert_resource(GlobalResources::default())
+            .insert_resource(PolylineBuffers::default())
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 shader::asset_shader_defs_system::<PolylineMaterial>.system(),
@@ -82,6 +84,9 @@ impl Plugin for PolylinePlugin {
             node::GLOBAL_RENDER_RESOURCES_NODE,
             global_render_resources_node,
         );
+
+        let polyline_buffers_node = PolylineBuffersNode::default();
+        render_graph.add_node(node::POLYLINE_BUFFERS_NODE, polyline_buffers_node);
     }
 }
 
@@ -159,45 +164,144 @@ fn polyline_draw_render_pipelines_system(
     }
 }
 
+#[derive(Default)]
+pub struct PolylineBuffers {
+    staging_buffer: Option<BufferId>,
+    buffer: Option<BufferId>,
+    queue: CommandQueue,
+}
+
 pub fn polyline_resource_provider_system(
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
-    mut query: Query<(&Polyline, &mut RenderPipelines), Changed<Polyline>>,
+    mut polyline_buffers: ResMut<PolylineBuffers>,
+    mut query: Query<(&Polyline, &mut RenderPipelines)>,
 ) {
-    // let mut changed_meshes = HashSet::default();
+    polyline_buffers.queue.clear();
+
     let render_resource_context = &**render_resource_context;
 
-    query.for_each_mut(|(polyline, mut render_pipelines)| {
-        // remove previous buffer
-        if let Some(buffer_id) = render_pipelines.bindings.vertex_attribute_buffer {
-            render_resource_context.remove_buffer(buffer_id);
-        }
+    let buffer_size = query.iter_mut().fold(0, |acc, (polyline, _)| {
+        let data: &[u8] = cast_slice(polyline.vertices.as_slice());
+        let padded_len = data.len() + 256 - data.len() % 256;
+        acc + padded_len
+    });
 
+    // Ensure staging buffer
+    let staging_buffer_id = if let Some(staging_buffer_id) = polyline_buffers.staging_buffer {
+        let buffer_info = render_resource_context
+            .get_buffer_info(staging_buffer_id)
+            .unwrap();
+        if buffer_info.size >= buffer_size {
+            staging_buffer_id
+        } else {
+            render_resource_context.remove_buffer(staging_buffer_id);
+            let staging_buffer_id = render_resource_context.create_buffer(BufferInfo {
+                size: buffer_size,
+                buffer_usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
+                mapped_at_creation: false,
+            });
+            polyline_buffers.staging_buffer.replace(staging_buffer_id);
+            staging_buffer_id
+        }
+    } else {
+        let staging_buffer_id = render_resource_context.create_buffer(BufferInfo {
+            size: buffer_size,
+            buffer_usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
+            mapped_at_creation: false,
+        });
+        polyline_buffers.staging_buffer.replace(staging_buffer_id);
+        staging_buffer_id
+    };
+
+    // Ensure buffer
+    let buffer_id = if let Some(buffer_id) = polyline_buffers.buffer {
+        let buffer_info = render_resource_context.get_buffer_info(buffer_id).unwrap();
+        if buffer_info.size >= buffer_size {
+            buffer_id
+        } else {
+            render_resource_context.remove_buffer(buffer_id);
+            let buffer_id = render_resource_context.create_buffer(BufferInfo {
+                size: buffer_size,
+                buffer_usage: BufferUsage::COPY_DST | BufferUsage::STORAGE,
+                mapped_at_creation: false,
+            });
+            polyline_buffers.buffer.replace(buffer_id);
+            buffer_id
+        }
+    } else {
+        let buffer_id = render_resource_context.create_buffer(BufferInfo {
+            size: buffer_size,
+            buffer_usage: BufferUsage::COPY_DST | BufferUsage::STORAGE,
+            mapped_at_creation: false,
+        });
+        polyline_buffers.buffer.replace(buffer_id);
+        buffer_id
+    };
+
+    render_resource_context.map_buffer(
+        staging_buffer_id,
+        bevy::render::renderer::BufferMapMode::Write,
+    );
+
+    let mut offset = 0u64;
+
+    query.for_each_mut(|(polyline, mut render_pipelines)| {
         if polyline.vertices.is_empty() {
             return;
         }
 
         let data = cast_slice(polyline.vertices.as_slice());
 
-        let buffer_id = render_resource_context.create_buffer_with_data(
-            BufferInfo {
-                size: data.len(),
-                buffer_usage: BufferUsage::STORAGE,
-                mapped_at_creation: false,
-            },
-            data,
-        );
+        let padded_len = data.len() + 256 - data.len() % 256;
 
-        // dbg!(data.len());
+        render_resource_context.write_mapped_buffer(
+            staging_buffer_id,
+            offset..offset + data.len() as u64,
+            &mut |buf: &mut [u8], _| {
+                buf.copy_from_slice(data);
+            },
+        );
 
         render_pipelines.bindings.set(
             "PolyLine_Vertices",
             RenderResourceBinding::Buffer {
                 buffer: buffer_id,
-                range: 0..data.len() as u64,
+                range: offset..offset + data.len() as u64,
                 dynamic_index: None,
             },
         );
+
+        offset += padded_len as u64;
     });
+
+    render_resource_context.unmap_buffer(staging_buffer_id);
+
+    polyline_buffers.queue.copy_buffer_to_buffer(
+        staging_buffer_id,
+        0,
+        buffer_id,
+        0,
+        buffer_size as u64,
+    );
+}
+
+#[derive(Default)]
+pub struct PolylineBuffersNode;
+
+impl Node for PolylineBuffersNode {
+    fn update(
+        &mut self,
+        world: &World,
+        render_context: &mut dyn RenderContext,
+        _input: &ResourceSlots,
+        _output: &mut ResourceSlots,
+    ) {
+        world
+            .get_resource::<PolylineBuffers>()
+            .unwrap()
+            .queue
+            .execute(render_context);
+    }
 }
 
 #[derive(Debug, Default, Reflect)]
