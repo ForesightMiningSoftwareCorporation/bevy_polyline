@@ -3,8 +3,8 @@ use bevy::{
     ecs::{reflect::ReflectComponent, system::IntoSystem},
     math::{Vec2, Vec3},
     prelude::{
-        AddAsset, Assets, Changed, Color, Draw, EventReader, GlobalTransform, Handle, Msaa, Query,
-        RenderPipelines, Res, ResMut, Shader, Transform, Without,
+        AddAsset, Assets, Changed, Color, DetectChanges, Draw, EventReader, GlobalTransform,
+        Handle, Msaa, Query, RenderPipelines, Res, ResMut, Shader, Transform, Without,
     },
     reflect::{Reflect, TypeUuid},
     render::{
