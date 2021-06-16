@@ -180,7 +180,7 @@ pub fn polyline_resource_provider_system(
 
     let render_resource_context = &**render_resource_context;
 
-    let buffer_size = query.iter_mut().fold(0, |acc, (polyline, _)| {
+    let mut buffer_size = query.iter_mut().fold(0, |acc, (polyline, _)| {
         let data: &[u8] = cast_slice(polyline.vertices.as_slice());
         let padded_len = data.len() + 256 - data.len() % 256;
         acc + padded_len
@@ -194,6 +194,7 @@ pub fn polyline_resource_provider_system(
         if buffer_info.size >= buffer_size {
             staging_buffer_id
         } else {
+            buffer_size *= 2;
             render_resource_context.remove_buffer(staging_buffer_id);
             let staging_buffer_id = render_resource_context.create_buffer(BufferInfo {
                 size: buffer_size,
