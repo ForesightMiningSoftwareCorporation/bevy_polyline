@@ -180,7 +180,7 @@ fn polyline_draw_render_pipelines_system(
             }
             let num_instances = num_vertices / (stride / 12) - (num_attributes - 1);
 
-            draw.draw(0..6, 0..num_instances)
+            draw.draw(0..18, 0..num_instances)
         }
     }
 }
