@@ -23,6 +23,20 @@ layout(set = 2, binding = 0) uniform Transform {
     mat4 Model;
 };
 
+layout(set = 2, binding = 1) buffer PolylineMesh_Indices {
+    int[] indices;
+};
+
+struct VertexData {
+    vec3 position;
+    vec3 normal;
+    vec2 uv;
+};
+
+layout(set = 2, binding = 2) buffer PolylineMesh_Vertices {
+    VertexData[] vertices;
+};
+
 layout(set = 1, binding = 1) uniform GlobalResources_resolution {
     vec2 resolution;
 };
@@ -32,58 +46,12 @@ layout(set = 3, binding = 15) uniform PolylinePbrMaterial_width {
 };
 
 void main() {
-    vec3[] vertices = {
-        { -0.5, 0.0, 0.0 },
-        { -0.5, 1.0, 0.0 },
-        { -0.25, 1.0, -0.433 },
-        { -0.5, 0.0, 0.0 },
-        { -0.25, 1.0, -0.433 },
-        { -0.25, 0.0, -0.433 },
-
-        { -0.25, 0.0, -0.433 },
-        { -0.25, 1.0, -0.433 },
-        { 0.25, 1.0, -0.433 },
-        { -0.25, 0.0, -0.433 },
-        { 0.25, 1.0, -0.433 },
-        { 0.25, 0.0, -0.433 },
-
-        { 0.25, 0.0, -0.433 },
-        { 0.25, 1.0, -0.433 },
-        { 0.5, 1.0, 0.0 },
-        { 0.25, 0.0, -0.433 },
-        { 0.5, 1.0, 0.0 },
-        { 0.5, 0.0, 0.0 }
-    };
-
-    vec3[] normals = {
-        { -0.866, 0.0, -0.5 },
-        { -0.866, 0.0, -0.5 },
-        { -0.866, 0.0, -0.5 },
-        { -0.866, 0.0, -0.5 },
-        { -0.866, 0.0, -0.5 },
-        { -0.866, 0.0, -0.5 },
-
-        { 0.0, 0.0, -1.0 },
-        { 0.0, 0.0, -1.0 },
-        { 0.0, 0.0, -1.0 },
-        { 0.0, 0.0, -1.0 },
-        { 0.0, 0.0, -1.0 },
-        { 0.0, 0.0, -1.0 },
-
-        { 0.866, 0.0, -0.5 },
-        { 0.866, 0.0, -0.5 },
-        { 0.866, 0.0, -0.5 },
-        { 0.866, 0.0, -0.5 },
-        { 0.866, 0.0, -0.5 },
-        { 0.866, 0.0, -0.5 }
-    };
-
-    vec3 vertex = vertices[gl_VertexIndex];
-    vec3 normal = normals[gl_VertexIndex];
+    int index = indices[gl_VertexIndex];
+    VertexData vertex = vertices[index];
 
     vec4 point0 = Model * vec4(I_Point0, 1.0);
     vec4 point1 = Model * vec4(I_Point1, 1.0);
-    vec4 point = mix(point0, point1, vertex.y);
+    vec4 point = mix(point0, point1, vertex.position.y);
 
     vec3 direction = (point1 - point0).xyz;
     float norm = length(direction);
@@ -101,9 +69,9 @@ void main() {
 #endif
     // TODO get right of / 1.2 which is a workaround for a bug.
     mat3 billboard_matrix = mat3(right * width / 1.2, up * norm, forward);
-    vec3 position = billboard_matrix * vertex + point0.xyz;
+    vec3 position = billboard_matrix * vertex.position + point0.xyz;
     v_WorldPosition = position.xyz;
-    v_WorldNormal = mat3(Model) * mat3(billboard_matrix) * normal;
-    v_Uv = vertex.xy;
+    v_WorldNormal = mat3(Model) * mat3(billboard_matrix) * vertex.normal;
+    v_Uv = vertex.position.xy;
     gl_Position = ViewProj * vec4(position, 1.0);
 }

@@ -1,28 +1,32 @@
+use std::iter::repeat;
+
 use bevy::{
     core::cast_slice,
     ecs::{reflect::ReflectComponent, system::IntoSystem},
     math::{Vec2, Vec3},
     prelude::{
-        AddAsset, Assets, Bundle, Changed, Color, CoreStage, Draw, EventReader, GlobalTransform,
-        Handle, Msaa, Plugin, Query, RenderPipelines, Res, ResMut, Shader, Transform, Visible,
-        Without,
+        AddAsset, AssetEvent, Assets, Bundle, Changed, Color, CoreStage, DetectChanges, Draw,
+        Entity, EventReader, GlobalTransform, Handle, Local, Mesh, Msaa, Mut, Plugin, Query,
+        QuerySet, RenderPipelines, Res, ResMut, Shader, Transform, Visible, With, Without,
     },
     reflect::{Reflect, TypeUuid},
     render::{
         draw::{DrawContext, OutsideFrustum},
-        pipeline::PipelineDescriptor,
+        mesh::{Indices, VertexAttributeValues},
+        pipeline::{IndexFormat, PipelineDescriptor, PrimitiveTopology, VertexFormat},
         render_graph::{
             base::{self, MainPass},
             AssetRenderResourcesNode, RenderGraph,
         },
         renderer::{
-            BufferInfo, BufferUsage, RenderResourceBindings, RenderResourceContext, RenderResources,
+            BufferInfo, BufferUsage, RenderResourceBinding, RenderResourceBindings,
+            RenderResourceContext, RenderResourceId, RenderResources,
         },
         shader::{self, ShaderDefs},
         texture::Texture,
         RenderStage,
     },
-    utils::HashSet,
+    utils::{HashMap, HashSet},
     window::{WindowResized, Windows},
 };
 
@@ -31,10 +35,17 @@ pub mod pipeline;
 
 use global_render_resources_node::GlobalRenderResourcesNode;
 
+use crate::mesh::{INDEX_STORAGE_BUFFER_ASSET_INDEX, VERTEX_ATTRIBUTE_STORAGE_BUFFER_ASSET_INDEX};
+
 pub mod node {
     pub const POLYLINE_MATERIAL_NODE: &str = "polyline_material_node";
     pub const POLYLINE_PBR_MATERIAL_NODE: &str = "polyline_pbr_material_node";
     pub const GLOBAL_RENDER_RESOURCES_NODE: &str = "global_render_resources_node";
+}
+
+pub mod mesh {
+    pub const INDEX_STORAGE_BUFFER_ASSET_INDEX: u64 = 20;
+    pub const VERTEX_ATTRIBUTE_STORAGE_BUFFER_ASSET_INDEX: u64 = 30;
 }
 
 pub struct PolylinePlugin;
@@ -56,6 +67,10 @@ impl Plugin for PolylinePlugin {
             .add_system_to_stage(
                 RenderStage::RenderResource,
                 polyline_resource_provider_system.system(),
+            )
+            .add_system_to_stage(
+                RenderStage::RenderResource,
+                polyline_mesh_resource_provider_system.system(),
             )
             .add_system_to_stage(
                 RenderStage::Draw,
@@ -101,13 +116,20 @@ impl Plugin for PolylinePlugin {
 fn polyline_draw_render_pipelines_system(
     mut draw_context: DrawContext,
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
+    meshes: Res<Assets<Mesh>>,
     msaa: Res<Msaa>,
     mut query: Query<
-        (&mut Draw, &mut RenderPipelines, &Polyline, &Visible),
+        (
+            &mut Draw,
+            &mut RenderPipelines,
+            &Polyline,
+            &PolylineMesh,
+            &Visible,
+        ),
         Without<OutsideFrustum>,
     >,
 ) {
-    for (mut draw, mut render_pipelines, polyline, visible) in query.iter_mut() {
+    for (mut draw, mut render_pipelines, polyline, polyline_mesh, visible) in query.iter_mut() {
         if !visible.is_visible {
             continue;
         }
@@ -179,8 +201,14 @@ fn polyline_draw_render_pipelines_system(
                 continue;
             }
             let num_instances = num_vertices / (stride / 12) - (num_attributes - 1);
+            if let Some(mesh) = meshes.get(polyline_mesh.mesh.as_ref().unwrap()) {
+                let num_indices = match mesh.indices().unwrap() {
+                    Indices::U16(indices) => indices.len(),
+                    Indices::U32(indices) => indices.len(),
+                };
 
-            draw.draw(0..18, 0..num_instances)
+                draw.draw(0..num_indices as u32, 0..num_instances)
+            }
         }
     }
 }
@@ -218,10 +246,268 @@ pub fn polyline_resource_provider_system(
     });
 }
 
+fn remove_resource_save(
+    render_resource_context: &dyn RenderResourceContext,
+    handle: &Handle<Mesh>,
+    index: u64,
+) {
+    if let Some(RenderResourceId::Buffer(buffer)) =
+        render_resource_context.get_asset_resource(handle, index)
+    {
+        render_resource_context.remove_buffer(buffer);
+        render_resource_context.remove_asset_resource(handle, index);
+    }
+}
+fn remove_current_mesh_resources(
+    render_resource_context: &dyn RenderResourceContext,
+    handle: &Handle<Mesh>,
+) {
+    remove_resource_save(
+        render_resource_context,
+        handle,
+        mesh::VERTEX_ATTRIBUTE_STORAGE_BUFFER_ASSET_INDEX,
+    );
+    remove_resource_save(
+        render_resource_context,
+        handle,
+        mesh::INDEX_STORAGE_BUFFER_ASSET_INDEX,
+    );
+}
+
+#[derive(Default)]
+pub struct PolylineMeshEntities {
+    entities: HashSet<Entity>,
+}
+
+#[derive(Default)]
+pub struct PolylineMeshResourceProviderState {
+    mesh_entities: HashMap<Handle<Mesh>, PolylineMeshEntities>,
+}
+
+#[allow(clippy::type_complexity)]
+pub fn polyline_mesh_resource_provider_system(
+    mut state: Local<PolylineMeshResourceProviderState>,
+    render_resource_context: Res<Box<dyn RenderResourceContext>>,
+    meshes: Res<Assets<Mesh>>,
+    mut mesh_events: EventReader<AssetEvent<Mesh>>,
+    mut queries: QuerySet<(
+        Query<&mut RenderPipelines, With<PolylineMesh>>,
+        Query<(Entity, &PolylineMesh, &mut RenderPipelines), Changed<PolylineMesh>>,
+    )>,
+) {
+    let mut changed_meshes = HashSet::default();
+    let render_resource_context = &**render_resource_context;
+    for event in mesh_events.iter() {
+        match event {
+            AssetEvent::Created { ref handle } => {
+                changed_meshes.insert(handle.clone_weak());
+            }
+            AssetEvent::Modified { ref handle } => {
+                changed_meshes.insert(handle.clone_weak());
+                remove_current_mesh_resources(render_resource_context, handle);
+            }
+            AssetEvent::Removed { ref handle } => {
+                remove_current_mesh_resources(render_resource_context, handle);
+                // if mesh was modified and removed in the same update, ignore the modification
+                // events are ordered so future modification events are ok
+                changed_meshes.remove(handle);
+            }
+        }
+    }
+
+    // update changed mesh data
+    for changed_mesh_handle in changed_meshes.iter() {
+        if let Some(mesh) = meshes.get(changed_mesh_handle) {
+            // TODO: check for individual buffer changes in non-interleaved mode
+            if let Some(data) = mesh.get_index_buffer_bytes() {
+                let index_buffer = render_resource_context.create_buffer_with_data(
+                    BufferInfo {
+                        buffer_usage: BufferUsage::STORAGE,
+                        ..Default::default()
+                    },
+                    data,
+                );
+
+                render_resource_context.set_asset_resource(
+                    changed_mesh_handle,
+                    RenderResourceId::Buffer(index_buffer),
+                    mesh::INDEX_STORAGE_BUFFER_ASSET_INDEX,
+                );
+            }
+
+            let attributes = vec![
+                Mesh::ATTRIBUTE_POSITION,
+                Mesh::ATTRIBUTE_NORMAL,
+                Mesh::ATTRIBUTE_UV_0,
+            ];
+
+            // attributes.iter().map(|&attribute| {
+            //     let attribute_values = mesh.attribute(attribute).unwrap();
+            //     let vertex_format = VertexFormat::from(attribute_values);
+            //     let attribute_size = vertex_format.get_size() as usize;
+            //     let attributes_bytes = attribute_values.get_bytes();
+            //     attributes_bytes.chunks_exact(attribute_size)
+            // });
+
+            let attributes_values = attributes
+                .iter()
+                .map(|attribute| mesh.attribute(*attribute).unwrap())
+                .collect::<Vec<&VertexAttributeValues>>();
+
+            let mut vertex_size = 0;
+            for attribute_values in &attributes_values {
+                let vertex_format = VertexFormat::from(*attribute_values);
+                vertex_size += vertex_format.get_size().max(16) as usize;
+            }
+
+            let vertex_count = mesh.count_vertices();
+            let mut attributes_interleaved_buffer = vec![0; vertex_count * vertex_size];
+            // bundle into interleaved buffers
+            let mut attribute_offset = 0;
+            for attribute_values in attributes_values {
+                let vertex_format = VertexFormat::from(attribute_values);
+                let attribute_size = vertex_format.get_size() as usize;
+                let attributes_bytes = attribute_values.get_bytes();
+                for (vertex_index, attribute_bytes) in
+                    attributes_bytes.chunks_exact(attribute_size).enumerate()
+                {
+                    let offset = vertex_index * vertex_size + attribute_offset;
+                    attributes_interleaved_buffer[offset..offset + attribute_size]
+                        .copy_from_slice(attribute_bytes);
+                }
+
+                attribute_offset += attribute_size.max(16);
+            }
+
+            // TODO add padding
+
+            // let interleaved_buffer = mesh.get_vertex_buffer_data();
+            if !attributes_interleaved_buffer.is_empty() {
+                render_resource_context.set_asset_resource(
+                    changed_mesh_handle,
+                    RenderResourceId::Buffer(render_resource_context.create_buffer_with_data(
+                        BufferInfo {
+                            buffer_usage: BufferUsage::STORAGE,
+                            ..Default::default()
+                        },
+                        &attributes_interleaved_buffer,
+                    )),
+                    mesh::VERTEX_ATTRIBUTE_STORAGE_BUFFER_ASSET_INDEX,
+                );
+            }
+
+            if let Some(mesh_entities) = state.mesh_entities.get_mut(changed_mesh_handle) {
+                for entity in mesh_entities.entities.iter() {
+                    if let Ok(render_pipelines) = queries.q0_mut().get_mut(*entity) {
+                        update_polyline_mesh(
+                            render_resource_context,
+                            mesh,
+                            changed_mesh_handle,
+                            render_pipelines,
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    // handover buffers to pipeline
+    for (entity, polyline_mesh, render_pipelines) in queries.q1_mut().iter_mut() {
+        if let Some(handle) = &polyline_mesh.mesh {
+            let mesh_entities = state
+                .mesh_entities
+                .entry(handle.clone_weak())
+                .or_insert_with(PolylineMeshEntities::default);
+            mesh_entities.entities.insert(entity);
+            if let Some(mesh) = meshes.get(handle) {
+                update_polyline_mesh(render_resource_context, mesh, handle, render_pipelines);
+            }
+        }
+    }
+}
+
+fn update_polyline_mesh(
+    render_resource_context: &dyn RenderResourceContext,
+    mesh: &Mesh,
+    handle: &Handle<Mesh>,
+    mut render_pipelines: Mut<RenderPipelines>,
+) {
+    for render_pipeline in render_pipelines.pipelines.iter_mut() {
+        debug_assert!(mesh.primitive_topology() == PrimitiveTopology::TriangleList);
+
+        render_pipeline.specialization.primitive_topology = mesh.primitive_topology();
+        // TODO: don't allocate a new vertex buffer descriptor for every entity
+        // render_pipeline.specialization.vertex_buffer_layout = mesh.get_vertex_buffer_layout();
+        // if let PrimitiveTopology::LineStrip | PrimitiveTopology::TriangleStrip =
+        //     mesh.primitive_topology()
+        // {
+        //     render_pipeline.specialization.strip_index_format =
+        //         mesh.indices().map(|indices| indices.into());
+        // }
+    }
+    let index_buffer = render_resource_context
+        .get_asset_resource(handle, INDEX_STORAGE_BUFFER_ASSET_INDEX)
+        .unwrap()
+        .get_buffer()
+        .unwrap();
+    let index_buffer_info = render_resource_context
+        .get_buffer_info(index_buffer)
+        .unwrap();
+    render_pipelines.bindings.set(
+        "PolylineMesh_Indices",
+        RenderResourceBinding::Buffer {
+            buffer: index_buffer,
+            range: 0..index_buffer_info.size as u64,
+            dynamic_index: None,
+        },
+    );
+
+    let vertex_buffer = render_resource_context
+        .get_asset_resource(handle, VERTEX_ATTRIBUTE_STORAGE_BUFFER_ASSET_INDEX)
+        .unwrap()
+        .get_buffer()
+        .unwrap();
+    let vertex_buffer_info = render_resource_context
+        .get_buffer_info(vertex_buffer)
+        .unwrap();
+    render_pipelines.bindings.set(
+        "PolylineMesh_Vertices",
+        RenderResourceBinding::Buffer {
+            buffer: vertex_buffer,
+            range: 0..vertex_buffer_info.size as u64,
+            dynamic_index: None,
+        },
+    );
+
+    // if let Some(RenderResourceId::Buffer(index_buffer_resource)) =
+    //     render_resource_context.get_asset_resource(handle, mesh::INDEX_BUFFER_ASSET_INDEX)
+    // {
+    //     let index_format: IndexFormat = mesh.indices().unwrap().into();
+    //     // set index buffer into binding
+    //     render_pipelines
+    //         .bindings
+    //         .set_index_buffer(index_buffer_resource, index_format);
+    // }
+
+    // if let Some(RenderResourceId::Buffer(vertex_attribute_buffer_resource)) =
+    //     render_resource_context.get_asset_resource(handle, mesh::VERTEX_ATTRIBUTE_BUFFER_ID)
+    // {
+    //     // set index buffer into binding
+    //     render_pipelines.bindings.vertex_attribute_buffer = Some(vertex_attribute_buffer_resource);
+    // }
+}
+
 #[derive(Debug, Default, Reflect)]
 #[reflect(Component)]
 pub struct Polyline {
     pub vertices: Vec<Vec3>,
+}
+
+#[derive(Debug, Default, Reflect)]
+#[reflect(Component)]
+pub struct PolylineMesh {
+    #[reflect(ignore)]
+    pub mesh: Option<Handle<Mesh>>,
 }
 
 #[derive(Reflect, RenderResources, ShaderDefs, TypeUuid)]

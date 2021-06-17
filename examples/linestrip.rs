@@ -1,8 +1,8 @@
 use bevy::{pbr::PointLightBundle, prelude::*};
 use bevy_polyline::{
     pipeline::{new_polyline_pbr_pipeline, new_polyline_pipeline},
-    Polyline, PolylineBundle, PolylineMaterial, PolylinePbrBundle, PolylinePbrMaterial,
-    PolylinePlugin,
+    Polyline, PolylineBundle, PolylineMaterial, PolylineMesh, PolylinePbrBundle,
+    PolylinePbrMaterial, PolylinePlugin,
 };
 
 fn main() {
@@ -23,22 +23,39 @@ fn setup(
     mut polyline_materials: ResMut<Assets<PolylineMaterial>>,
     mut polyline_pbr_materials: ResMut<Assets<PolylinePbrMaterial>>,
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
-    commands.spawn_bundle(PolylinePbrBundle {
-        polyline: Polyline {
-            vertices: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(5.0, 5.0, 0.0)],
+    commands
+        .spawn_bundle(PolylinePbrBundle {
+            polyline: Polyline {
+                vertices: vec![Vec3::new(1.0, 0.0, 0.0), Vec3::new(2.0, 2.0, 0.0)],
+                ..Default::default()
+            },
+            render_pipelines: RenderPipelines {
+                pipelines: vec![new_polyline_pbr_pipeline(true)],
+                ..Default::default()
+            },
+            polyline_pbr_material: polyline_pbr_materials.add(PolylinePbrMaterial {
+                width: 850.0,
+                perspective: true,
+                base_color: Color::WHITE,
+                ..Default::default()
+            }),
             ..Default::default()
-        },
-        render_pipelines: RenderPipelines {
-            pipelines: vec![new_polyline_pbr_pipeline(true)],
-            ..Default::default()
-        },
-        polyline_pbr_material: polyline_pbr_materials.add(PolylinePbrMaterial {
-            width: 250.0,
-            perspective: false,
-            base_color: Color::WHITE,
+        })
+        .insert(PolylineMesh {
+            mesh: Some(
+                asset_server.load::<Mesh, _>("models/capped_half_cylinder2.glb#Mesh0/Primitive0"),
+            ),
+        });
+
+    commands.spawn_bundle(PbrBundle {
+        mesh: asset_server.load("models/capped_cylinder2.glb#Mesh0/Primitive0"),
+        material: standard_materials.add(StandardMaterial {
+            base_color: Color::rgb(1.0, 1.0, 1.0),
             ..Default::default()
         }),
+        transform: Transform::from_xyz(-1.0, 0.0, 0.0),
         ..Default::default()
     });
 
@@ -103,14 +120,21 @@ fn setup(
 
     // light
     commands.spawn_bundle(PointLightBundle {
-        transform: Transform::from_xyz(0.0, 8.0, 0.0),
+        transform: Transform::from_xyz(0.0, 10.0, 20.0),
+        point_light: PointLight {
+            // color: (),
+            // intensity: (),
+            range: 1000.0,
+            // radius: (),
+            ..Default::default()
+        },
         ..Default::default()
     });
 
     // camera
     commands
         .spawn_bundle(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(0.0, 1.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
+            transform: Transform::from_xyz(0.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..PerspectiveCameraBundle::new_3d()
         })
         .insert(Rotates);
