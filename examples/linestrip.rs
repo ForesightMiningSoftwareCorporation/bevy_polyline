@@ -36,7 +36,7 @@ fn setup(
                 ..Default::default()
             },
             polyline_pbr_material: polyline_pbr_materials.add(PolylinePbrMaterial {
-                width: 850.0,
+                width: 1.0,
                 perspective: true,
                 base_color: Color::WHITE,
                 ..Default::default()

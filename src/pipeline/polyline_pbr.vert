@@ -63,12 +63,12 @@ void main() {
     vec3 forward = cross(up, right);
     // up = normalize(cross(right, forward));
 
-    float width = width / resolution.y;
+    float width = width;
 #ifndef POLYLINEPBRMATERIAL_PERSPECTIVE
-    width = width * (ViewProj * point).w;
-#endif
     // TODO get right of / 1.2 which is a workaround for a bug.
-    mat3 billboard_matrix = mat3(right * width / 1.2, up * norm, forward);
+    width = width / resolution.y * (ViewProj * point).w / 1.2;
+#endif
+    mat3 billboard_matrix = mat3(right * width, up * norm, forward);
     vec3 position = billboard_matrix * vertex.position + point0.xyz;
     v_WorldPosition = position.xyz;
     v_WorldNormal = mat3(Model) * mat3(billboard_matrix) * vertex.normal;
