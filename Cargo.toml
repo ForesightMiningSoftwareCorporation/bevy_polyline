@@ -19,6 +19,8 @@ bevy = { git = "https://github.com/bevyengine/bevy.git", branch = "main" }
 lazy_static = "1.4.0"
 rand = "0.8.3"
 ringbuffer = "0.7.1"
+bevy_mod_raycast = { git = "https://github.com/aevyrie/bevy_mod_raycast.git", branch = "master" }
+futures-lite = "1.11.3"
 
 [patch.crates-io]
 # bevy = { path = "../bevy" }
