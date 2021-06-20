@@ -52,6 +52,10 @@ fn setup(
                 ..Default::default()
             }),
             transform: Transform::from_xyz(-1.0, 0.0, 0.0),
+            visible: Visible {
+                is_visible: true,
+                is_transparent: true,
+            },
             ..Default::default()
         })
         .insert(RaycastTodo);
