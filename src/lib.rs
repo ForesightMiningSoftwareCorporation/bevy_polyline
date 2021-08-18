@@ -41,7 +41,7 @@ pub mod node {
 pub struct PolylinePlugin;
 
 impl Plugin for PolylinePlugin {
-    fn build(&self, app: &mut bevy::prelude::AppBuilder) {
+    fn build(&self, app: &mut bevy::prelude::App) {
         app.add_asset::<PolylineMaterial>()
             .register_type::<Polyline>()
             .insert_resource(GlobalResources::default())
@@ -60,7 +60,7 @@ impl Plugin for PolylinePlugin {
             .add_system(update_global_resources_system.system());
 
         // Setup pipeline
-        let world = app.world_mut().cell();
+        let world = app.world.cell();
         let mut shaders = world.get_resource_mut::<Assets<Shader>>().unwrap();
         let mut pipelines = world
             .get_resource_mut::<Assets<PipelineDescriptor>>()
