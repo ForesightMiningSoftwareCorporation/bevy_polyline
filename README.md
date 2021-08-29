@@ -20,7 +20,7 @@ Usage of Bevy Polyline is quite simple. First add it to your `Cargo.toml`. It ha
 
 ```toml
 [dependencies]
-bevy_polyline = { git = "https://github.com/mtsr/bevy_polyline.git", branch = "main" }
+bevy_polyline = { git = "https://github.com/ForesightMiningSoftwareCorporation/bevy_polyline.git", branch = "main" }
 ```
 
 You add it as a plugin to your app:
