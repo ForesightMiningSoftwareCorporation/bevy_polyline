@@ -3,8 +3,9 @@ use bevy::{
     ecs::{reflect::ReflectComponent, system::IntoSystem},
     math::{Vec2, Vec3},
     prelude::{
-        AddAsset, Assets, Changed, Color, DetectChanges, Draw, EventReader, GlobalTransform,
-        Handle, Msaa, Query, RenderPipelines, Res, ResMut, Shader, Transform, Without,
+        AddAsset, Assets, Changed, Color, Component, DetectChanges, Draw, EventReader,
+        GlobalTransform, Handle, Msaa, Query, RenderPipelines, Res, ResMut, Shader, Transform,
+        Without,
     },
     reflect::{Reflect, TypeUuid},
     render::{
@@ -204,13 +205,13 @@ pub fn polyline_resource_provider_system(
     });
 }
 
-#[derive(Debug, Default, Reflect)]
+#[derive(Debug, Default, Component, Reflect)]
 #[reflect(Component)]
 pub struct Polyline {
     pub vertices: Vec<Vec3>,
 }
 
-#[derive(Reflect, RenderResources, ShaderDefs, TypeUuid)]
+#[derive(Component, Reflect, RenderResources, ShaderDefs, TypeUuid)]
 #[reflect(Component)]
 #[uuid = "0be0c53f-05c9-40d4-ac1d-b56e072e33f8"]
 pub struct PolylineMaterial {
