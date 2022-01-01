@@ -18,7 +18,7 @@ bevy = { git = "https://github.com/bevyengine/bevy.git", branch = "main" }
 [dev-dependencies]
 lazy_static = "1.4.0"
 rand = "0.8.3"
-ringbuffer = "0.7.1"
+ringbuffer = "0.8"
 
 [patch.crates-io]
 # bevy = { path = "../bevy" }
