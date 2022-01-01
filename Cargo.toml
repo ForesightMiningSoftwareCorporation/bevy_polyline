@@ -14,7 +14,7 @@ path = "examples/nbody.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-bevy = { git = "https://github.com/bevyengine/bevy.git", branch = "main" }
+bevy = { git = "https://github.com/bevyengine/bevy.git", rev="de8edd3165c379e05aabb38359b3f4b97f46540a" }
 
 [dev-dependencies]
 lazy_static = "1.4.0"

@@ -12,8 +12,11 @@ const NUM_BODIES: usize = 500;
 const TRAIL_LENGTH: usize = 8192;
 const MINIMUM_LINE_SEGMENT_LENGTH_SQUARED: f32 = 0.1;
 
+#[derive(Component)]
+struct Trail(ConstGenericRingBuffer<Vec3, TRAIL_LENGTH>);
+
 fn main() {
-    let mut app = App::build();
+    let mut app = App::new();
 
     app.insert_resource(WindowDescriptor {
         vsync: true,
@@ -51,7 +54,7 @@ fn setup(mut commands: Commands, mut polyline_materials: ResMut<Assets<PolylineM
                     position,
                     ..Default::default()
                 },
-                ConstGenericRingBuffer::<Vec3, TRAIL_LENGTH>::new(),
+                Trail(ConstGenericRingBuffer::new()),
             ))
             .insert_bundle(PolylineBundle {
                 polyline: Polyline {
@@ -79,7 +82,8 @@ fn setup(mut commands: Commands, mut polyline_materials: ResMut<Assets<PolylineM
         .insert(Rotates);
 }
 
-/// this component indicates what entities should rotate
+/// This component indicates what entities should rotate.
+#[derive(Component)]
 struct Rotates;
 
 fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Rotates>>) {
@@ -90,7 +94,7 @@ fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Rotates
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Component, Debug, Default)]
 struct Body {
     mass: f32,
     acceleration: Vec3,
@@ -144,7 +148,7 @@ fn nbody_system(
     mut query: Query<(
         Entity,
         &mut Body,
-        &mut ConstGenericRingBuffer<Vec3, TRAIL_LENGTH>,
+        &mut Trail,
         &mut Polyline,
     )>,
 ) {
@@ -194,16 +198,16 @@ fn nbody_system(
     bodies
         .iter_mut()
         .for_each(|(_entity, body, trail, polyline)| {
-            if let Some(position) = trail.back() {
+            if let Some(position) = trail.0.back() {
                 if (*position - body.position).length_squared()
                     > MINIMUM_LINE_SEGMENT_LENGTH_SQUARED
                 {
-                    trail.push(body.position);
-                    polyline.vertices = trail.to_vec();
+                    trail.0.push(body.position);
+                    polyline.vertices = trail.0.to_vec();
                 }
             } else {
-                trail.push(body.position);
-                polyline.vertices = trail.to_vec();
+                trail.0.push(body.position);
+                polyline.vertices = trail.0.to_vec();
             }
         });
 }

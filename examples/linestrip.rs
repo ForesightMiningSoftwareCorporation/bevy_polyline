@@ -2,7 +2,7 @@ use bevy::{pbr::PointLightBundle, prelude::*};
 use bevy_polyline::{Polyline, PolylineBundle, PolylineMaterial, PolylinePlugin};
 
 fn main() {
-    let mut app = App::build();
+    let mut app = App::new();
 
     app.insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
@@ -69,7 +69,8 @@ fn setup(
         .insert(Rotates);
 }
 
-/// this component indicates what entities should rotate
+/// This component indicates what entities should rotate
+#[derive(Component)]
 struct Rotates;
 
 fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Rotates>>) {

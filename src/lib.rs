@@ -24,7 +24,7 @@ use bevy::{
     window::{WindowResized, Windows},
 };
 use bevy::{
-    prelude::{Bundle, CoreStage, Plugin, Visible},
+    prelude::{Bundle, Component, CoreStage, Plugin, Visible},
     render::shader,
 };
 
@@ -204,13 +204,13 @@ pub fn polyline_resource_provider_system(
     });
 }
 
-#[derive(Debug, Default, Reflect)]
+#[derive(Component, Debug, Default, Reflect)]
 #[reflect(Component)]
 pub struct Polyline {
     pub vertices: Vec<Vec3>,
 }
 
-#[derive(Reflect, RenderResources, ShaderDefs, TypeUuid)]
+#[derive(Component, Reflect, RenderResources, ShaderDefs, TypeUuid)]
 #[reflect(Component)]
 #[uuid = "0be0c53f-05c9-40d4-ac1d-b56e072e33f8"]
 pub struct PolylineMaterial {
