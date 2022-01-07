@@ -1,4 +1,4 @@
-use crate::{material::PolylineMaterial, FRAG_SHADER_HANDLE, VERT_SHADER_HANDLE};
+use crate::{FRAG_SHADER_HANDLE, VERT_SHADER_HANDLE};
 use bevy::{
     core::cast_slice,
     ecs::system::{
@@ -9,16 +9,18 @@ use bevy::{
     reflect::TypeUuid,
     render::{
         render_asset::{RenderAsset, RenderAssets},
+        render_component::DynamicUniformIndex,
         render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
         render_resource::{
-            std140::AsStd140, BindGroupLayout, BlendState, Buffer, BufferInitDescriptor,
-            BufferUsages, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
-            PolygonMode, PrimitiveState, RenderPipelineDescriptor, SpecializedPipeline,
-            TextureFormat, VertexBufferLayout, VertexState, VertexStepMode,
+            std140::AsStd140, BindGroup, BindGroupLayout, BlendState, Buffer, BufferInitDescriptor,
+            BufferUsages, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
+            DepthStencilState, FragmentState, FrontFace, MultisampleState, PolygonMode,
+            PrimitiveState, PrimitiveTopology, RenderPipelineDescriptor, SpecializedPipeline,
+            StencilFaceState, StencilState, TextureFormat, VertexAttribute, VertexBufferLayout,
+            VertexFormat, VertexState, VertexStepMode,
         },
         renderer::RenderDevice,
         texture::BevyDefault,
-        view::{ComputedVisibility, Visibility},
     },
 };
 
@@ -73,27 +75,25 @@ pub struct GpuPolyline {
     pub vertex_count: u32,
 }
 
+#[derive(Clone)]
 pub struct PolylinePipeline {
     pub view_layout: BindGroupLayout,
-    pub mesh_layout: BindGroupLayout,
+    pub polyline_layout: BindGroupLayout,
 }
 
 impl SpecializedPipeline for PolylinePipeline {
     type Key = PolylinePipelineKey;
-    fn specialize(
-        &self,
-        key: Self::Key,
-    ) -> RenderPipelineDescriptor {
+    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let vertex_array_stride = 32;
-            let vertex_attributes = vec![
-                // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
-                VertexAttribute {
-                    format: VertexFormat::Float32x3,
-                    offset: 0,
-                    shader_location: 0,
-                },
-            ];
-        let mut shader_defs = Vec::new();
+        let vertex_attributes = vec![
+            // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
+            VertexAttribute {
+                format: VertexFormat::Float32x3,
+                offset: 0,
+                shader_location: 0,
+            },
+        ];
+        let shader_defs = Vec::new();
         let (label, blend, depth_write_enabled);
 
         if key.contains(PolylinePipelineKey::TRANSPARENT_MAIN_PASS) {
@@ -114,7 +114,7 @@ impl SpecializedPipeline for PolylinePipeline {
         RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: VERT_SHADER_HANDLE.typed::<Shader>(),
-                entry_point: "vertex".into(),
+                entry_point: "main".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![VertexBufferLayout {
                     array_stride: vertex_array_stride,
@@ -125,21 +125,21 @@ impl SpecializedPipeline for PolylinePipeline {
             fragment: Some(FragmentState {
                 shader: FRAG_SHADER_HANDLE.typed::<Shader>(),
                 shader_defs,
-                entry_point: "fragment".into(),
+                entry_point: "main".into(),
                 targets: vec![ColorTargetState {
                     format: TextureFormat::bevy_default(),
                     blend,
                     write_mask: ColorWrites::ALL,
                 }],
             }),
-            layout: Some(vec![self.view_layout.clone(), self.mesh_layout.clone()]),
+            layout: Some(vec![self.view_layout.clone(), self.polyline_layout.clone()]),
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
-                cull_mode: Some(Face::Back),
+                cull_mode: None,
                 unclipped_depth: false,
                 polygon_mode: PolygonMode::Fill,
                 conservative: false,
-                topology: key.primitive_topology(),
+                topology: PrimitiveTopology::TriangleList,
                 strip_index_format: None,
             },
             depth_stencil: Some(DepthStencilState {
@@ -161,7 +161,7 @@ impl SpecializedPipeline for PolylinePipeline {
             multisample: MultisampleState {
                 count: key.msaa_samples(),
                 mask: !0,
-                alpha_to_coverage_enabled: false,
+                alpha_to_coverage_enabled: false, //TODO: Do we need this for blending faded lines?
             },
             label: Some(label),
         }
@@ -191,6 +191,38 @@ impl PolylinePipelineKey {
 
     pub fn msaa_samples(&self) -> u32 {
         ((self.bits >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS) + 1
+    }
+}
+
+pub struct PolylineBindGroup {
+    pub value: BindGroup,
+}
+
+#[derive(Component)]
+pub struct PolylineViewBindGroup {
+    pub value: BindGroup,
+}
+
+pub struct SetPolylineBindGroup<const I: usize>;
+impl<const I: usize> EntityRenderCommand for SetPolylineBindGroup<I> {
+    type Param = (
+        SRes<PolylineBindGroup>,
+        SQuery<Read<DynamicUniformIndex<PolylineUniform>>>,
+    );
+    #[inline]
+    fn render<'w>(
+        _view: Entity,
+        item: Entity,
+        (mesh_bind_group, mesh_query): SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        let mesh_index = mesh_query.get(item).unwrap();
+        pass.set_bind_group(
+            I,
+            &mesh_bind_group.into_inner().value,
+            &[mesh_index.index()],
+        );
+        RenderCommandResult::Success
     }
 }
 

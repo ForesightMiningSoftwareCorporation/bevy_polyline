@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, reflect::TypeUuid};
 use material::PolylineMaterial;
 use polyline::Polyline;
 
@@ -6,9 +6,9 @@ pub mod material;
 pub mod polyline;
 
 pub const FRAG_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4805239651767701046);
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 12823766040132746065);
 pub const VERT_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1836745567947005696);
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 10060193527938109963);
 
 pub struct PolylinePlugin;
 
@@ -16,14 +16,14 @@ impl Plugin for PolylinePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
         shaders.set_untracked(
-            material::FRAG_SHADER_HANDLE,
+            FRAG_SHADER_HANDLE,
             Shader::from_glsl(
                 include_str!("render/polyline.frag"),
                 naga::ShaderStage::Fragment,
             ),
         );
         shaders.set_untracked(
-            material::VERT_SHADER_HANDLE,
+            VERT_SHADER_HANDLE,
             Shader::from_glsl(
                 include_str!("render/polyline.vert"),
                 naga::ShaderStage::Vertex,
