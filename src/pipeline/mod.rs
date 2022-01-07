@@ -1,16 +1,4 @@
-use bevy::{
-    asset::Assets,
-    prelude::HandleUntyped,
-    reflect::TypeUuid,
-    render::{
-        pipeline::{
-            FrontFace, InputStepMode, PipelineDescriptor, PipelineSpecialization, PolygonMode,
-            PrimitiveState, PrimitiveTopology, RenderPipeline, VertexAttribute, VertexBufferLayout,
-            VertexFormat,
-        },
-        shader::{Shader, ShaderStage, ShaderStages},
-    },
-};
+use bevy::{asset::Assets, prelude::HandleUntyped, reflect::TypeUuid};
 
 const POLYLINE_PIPELINE_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(PipelineDescriptor::TYPE_UUID, 0x6e339e9dad279849);

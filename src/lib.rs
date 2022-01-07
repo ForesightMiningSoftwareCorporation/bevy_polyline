@@ -1,43 +1,148 @@
 use bevy::{
     core::cast_slice,
-    ecs::{reflect::ReflectComponent, system::IntoSystem},
-    math::{Vec2, Vec3},
-    prelude::{
-        AddAsset, Assets, Changed, Color, DetectChanges, Draw, EventReader, GlobalTransform,
-        Handle, Msaa, Query, RenderPipelines, Res, ResMut, Shader, Transform, Without,
+    core_pipeline::Transparent3d,
+    ecs::system::lifetimeless::SRes,
+    pbr::{
+        DrawMesh, MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup,
+        SetMeshViewBindGroup,
     },
-    reflect::{Reflect, TypeUuid},
+    prelude::*,
+    reflect::TypeUuid,
     render::{
-        draw::{DrawContext, OutsideFrustum},
-        pipeline::PipelineDescriptor,
-        render_graph::{
-            base::{self, MainPass},
-            AssetRenderResourcesNode, RenderGraph,
+        mesh::{GpuBufferInfo, VertexFormatSize},
+        render_asset::{RenderAsset, RenderAssets},
+        render_component::{ExtractComponent, ExtractComponentPlugin},
+        render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
+        render_resource::{
+            internal::bytemuck::try_cast_slice, Buffer, BufferInitDescriptor, BufferUsages,
+            RenderPipelineCache, RenderPipelineDescriptor, SpecializedPipeline,
+            SpecializedPipelines, VertexFormat,
         },
-        renderer::{
-            BufferInfo, BufferUsage, RenderResourceBindings, RenderResourceContext, RenderResources,
-        },
-        shader::ShaderDefs,
-        RenderStage,
+        renderer::RenderDevice,
+        view::{ComputedVisibility, Visibility, VisibleEntities},
+        RenderApp, RenderStage,
     },
-    utils::HashSet,
-    window::{WindowResized, Windows},
-};
-use bevy::{
-    prelude::{Bundle, CoreStage, Plugin, Visible},
-    render::shader,
 };
 
-mod global_render_resources_node;
-mod pipeline;
+//mod global_render_resources_node;
+//mod pipeline;
 
-use global_render_resources_node::GlobalRenderResourcesNode;
+//use global_render_resources_node::GlobalRenderResourcesNode;
 
 pub mod node {
     pub const POLYLINE_MATERIAL_NODE: &str = "polyline_material_node";
     pub const GLOBAL_RENDER_RESOURCES_NODE: &str = "global_render_resources_node";
 }
 
+pub struct PolylinePlugin;
+
+impl Plugin for PolylinePlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        app.add_asset::<PolylineMaterial>()
+            .add_asset::<Polyline>()
+            .add_plugin(ExtractComponentPlugin::<PolylineMaterial>::default());
+    }
+}
+
+#[derive(Debug, Default, Component, Clone, TypeUuid)]
+#[uuid = "c76af88a-8afe-405c-9a64-0a7d845d2546"]
+pub struct Polyline {
+    pub vertices: Vec<Vec3>,
+}
+
+impl RenderAsset for Polyline {
+    type ExtractedAsset = Polyline;
+
+    type PreparedAsset = GpuPolyline;
+
+    type Param = SRes<RenderDevice>;
+
+    fn extract_asset(&self) -> Self::ExtractedAsset {
+        self.clone()
+    }
+
+    fn prepare_asset(
+        polyline: Self::ExtractedAsset,
+        render_device: &mut bevy::ecs::system::SystemParamItem<Self::Param>,
+    ) -> Result<
+        Self::PreparedAsset,
+        bevy::render::render_asset::PrepareAssetError<Self::ExtractedAsset>,
+    > {
+        let vertex_buffer_data = cast_slice(polyline.vertices.as_slice());
+        let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
+            usage: BufferUsages::VERTEX,
+            label: Some("Polyline Vertex Buffer"),
+            contents: &vertex_buffer_data,
+        });
+
+        Ok(GpuPolyline {
+            vertex_buffer,
+            vertex_count: polyline.vertices.len() as u32,
+        })
+    }
+}
+
+/// The GPU-representation of a [`Polyline`]
+#[derive(Debug, Clone)]
+pub struct GpuPolyline {
+    pub vertex_buffer: Buffer,
+    pub vertex_count: u32,
+}
+
+#[derive(Component, Debug, PartialEq, Clone, TypeUuid)]
+#[uuid = "69b87497-2ba0-4c38-ba82-f54bf1ffe873"]
+pub struct PolylineMaterial {
+    pub width: f32,
+    pub color: Color,
+    pub perspective: bool,
+}
+
+impl Default for PolylineMaterial {
+    fn default() -> Self {
+        Self {
+            width: 10.0,
+            color: Color::WHITE,
+            perspective: false,
+        }
+    }
+}
+
+impl ExtractComponent for PolylineMaterial {
+    type Query = &'static PolylineMaterial;
+
+    type Filter = ();
+
+    fn extract_component(item: bevy::ecs::query::QueryItem<Self::Query>) -> Self {
+        item.clone()
+    }
+}
+
+#[derive(Bundle)]
+pub struct PolylineBundle {
+    pub polyline: Handle<Polyline>,
+    pub material: Handle<PolylineMaterial>,
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+    /// User indication of whether an entity is visible
+    pub visibility: Visibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub computed_visibility: ComputedVisibility,
+}
+
+impl Default for PolylineBundle {
+    fn default() -> Self {
+        Self {
+            polyline: Default::default(),
+            material: Default::default(),
+            transform: Default::default(),
+            global_transform: Default::default(),
+            visibility: Default::default(),
+            computed_visibility: Default::default(),
+        }
+    }
+}
+
+/*
 pub struct PolylinePlugin;
 
 impl Plugin for PolylinePlugin {
@@ -204,62 +309,7 @@ pub fn polyline_resource_provider_system(
     });
 }
 
-#[derive(Debug, Default, Reflect)]
-#[reflect(Component)]
-pub struct Polyline {
-    pub vertices: Vec<Vec3>,
-}
 
-#[derive(Reflect, RenderResources, ShaderDefs, TypeUuid)]
-#[reflect(Component)]
-#[uuid = "0be0c53f-05c9-40d4-ac1d-b56e072e33f8"]
-pub struct PolylineMaterial {
-    pub width: f32,
-    pub color: Color,
-    #[render_resources(ignore)]
-    #[shader_def]
-    pub perspective: bool,
-}
-
-impl Default for PolylineMaterial {
-    fn default() -> Self {
-        Self {
-            width: 10.0,
-            color: Color::WHITE,
-            perspective: false,
-        }
-    }
-}
-
-#[derive(Bundle)]
-pub struct PolylineBundle {
-    pub material: Handle<PolylineMaterial>,
-    pub polyline: Polyline,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
-    pub visible: Visible,
-    pub draw: Draw,
-    pub render_pipelines: RenderPipelines,
-    pub main_pass: MainPass,
-}
-
-impl Default for PolylineBundle {
-    fn default() -> Self {
-        Self {
-            material: Default::default(),
-            polyline: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-            visible: Default::default(),
-            draw: Default::default(),
-            render_pipelines: RenderPipelines::from_pipelines(vec![
-                pipeline::new_polyline_pipeline(true),
-                pipeline::new_miter_join_pipeline(),
-            ]),
-            main_pass: MainPass,
-        }
-    }
-}
 
 #[derive(Debug, Default, RenderResources)]
 struct GlobalResources {
@@ -282,3 +332,4 @@ fn update_global_resources_system(
         global_resources.resolution.y = event.height;
     }
 }
+*/

@@ -2,15 +2,13 @@ use bevy::{pbr::PointLightBundle, prelude::*};
 use bevy_polyline::{Polyline, PolylineBundle, PolylineMaterial, PolylinePlugin};
 
 fn main() {
-    let mut app = App::build();
-
-    app.insert_resource(Msaa { samples: 4 })
+    App::new()
+        .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_plugin(PolylinePlugin)
         .add_startup_system(setup.system())
-        .add_system(rotator_system.system());
-
-    app.run();
+        .add_system(rotator_system.system())
+        .run();
 }
 
 fn setup(
@@ -18,9 +16,10 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
     mut polyline_materials: ResMut<Assets<PolylineMaterial>>,
+    mut polylines: ResMut<Assets<Polyline>>,
 ) {
     commands.spawn_bundle(PolylineBundle {
-        polyline: Polyline {
+        polyline: polylines.add(Polyline {
             vertices: vec![
                 Vec3::new(-0.5, 0.0, -0.5),
                 Vec3::new(0.5, 0.0, -0.5),
@@ -32,7 +31,7 @@ fn setup(
                 Vec3::new(-0.5, 0.0, 0.5),
             ],
             ..Default::default()
-        },
+        }),
         material: polyline_materials.add(PolylineMaterial {
             width: 5.0,
             color: Color::RED,
@@ -70,6 +69,7 @@ fn setup(
 }
 
 /// this component indicates what entities should rotate
+#[derive(Component)]
 struct Rotates;
 
 fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Rotates>>) {
