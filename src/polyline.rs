@@ -9,7 +9,7 @@ use bevy::{
     prelude::*,
     reflect::TypeUuid,
     render::{
-        render_asset::{RenderAsset, RenderAssets},
+        render_asset::{RenderAsset, RenderAssetPlugin, RenderAssets},
         render_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
         render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
         render_resource::{
@@ -28,6 +28,15 @@ use bevy::{
         RenderApp, RenderStage,
     },
 };
+
+pub struct PolylineBasePlugin;
+
+impl Plugin for PolylineBasePlugin {
+    fn build(&self, app: &mut App) {
+        app.add_asset::<Polyline>()
+            .add_plugin(RenderAssetPlugin::<Polyline>::default());
+    }
+}
 
 pub struct PolylineRenderPlugin;
 impl Plugin for PolylineRenderPlugin {
