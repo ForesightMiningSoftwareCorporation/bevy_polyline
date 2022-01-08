@@ -67,6 +67,7 @@ fn setup(
                         rng.gen_range(0.0..1.0),
                     ),
                     perspective: true,
+                    ..Default::default()
                 }),
                 ..Default::default()
             });

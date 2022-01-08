@@ -36,6 +36,7 @@ fn setup(
             width: 5.0,
             color: Color::RED,
             perspective: false,
+            ..Default::default()
         }),
         ..Default::default()
     });

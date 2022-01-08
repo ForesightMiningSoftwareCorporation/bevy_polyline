@@ -163,9 +163,9 @@ impl RenderAsset for PolylineMaterial {
 
 /// Adds the necessary ECS resources and render logic to enable rendering entities using ['PolylineMaterial']
 #[derive(Default)]
-pub struct PolyMatlPlugin;
+pub struct PolylineMaterialPlugin;
 
-impl Plugin for PolyMatlPlugin {
+impl Plugin for PolylineMaterialPlugin {
     fn build(&self, app: &mut App) {
         app.add_asset::<PolylineMaterial>()
             .add_plugin(ExtractComponentPlugin::<Handle<PolylineMaterial>>::default())
@@ -176,6 +176,7 @@ impl Plugin for PolyMatlPlugin {
                 .add_render_command::<Opaque3d, DrawMaterial>()
                 .add_render_command::<AlphaMask3d, DrawMaterial>()
                 .init_resource::<PolylineMaterialPipeline>()
+                .init_resource::<SpecializedPipelines<PolylineMaterialPipeline>>()
                 .add_system_to_stage(RenderStage::Queue, queue_material_polylines);
         }
     }

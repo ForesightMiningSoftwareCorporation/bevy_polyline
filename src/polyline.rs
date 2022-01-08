@@ -5,24 +5,41 @@ use bevy::{
         lifetimeless::{Read, SQuery, SRes},
         SystemParamItem,
     },
+    pbr::{GlobalLightMeta, LightMeta, ViewClusterBindings, ViewShadowBindings},
     prelude::*,
     reflect::TypeUuid,
     render::{
         render_asset::{RenderAsset, RenderAssets},
-        render_component::DynamicUniformIndex,
+        render_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
         render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
         render_resource::{
-            std140::AsStd140, BindGroup, BindGroupLayout, BlendState, Buffer, BufferInitDescriptor,
-            BufferUsages, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
-            DepthStencilState, FragmentState, FrontFace, MultisampleState, PolygonMode,
-            PrimitiveState, PrimitiveTopology, RenderPipelineDescriptor, SpecializedPipeline,
-            StencilFaceState, StencilState, TextureFormat, VertexAttribute, VertexBufferLayout,
-            VertexFormat, VertexState, VertexStepMode,
+            std140::AsStd140, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
+            BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendState, Buffer,
+            BufferBindingType, BufferInitDescriptor, BufferSize, BufferUsages, ColorTargetState,
+            ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, FragmentState,
+            FrontFace, MultisampleState, PolygonMode, PrimitiveState, PrimitiveTopology,
+            RenderPipelineDescriptor, ShaderStages, SpecializedPipeline, StencilFaceState,
+            StencilState, TextureFormat, VertexAttribute, VertexBufferLayout, VertexFormat,
+            VertexState, VertexStepMode,
         },
         renderer::RenderDevice,
         texture::BevyDefault,
+        view::{ViewUniform, ViewUniforms},
+        RenderApp, RenderStage,
     },
 };
+
+pub struct PolylineRenderPlugin;
+impl Plugin for PolylineRenderPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugin(UniformComponentPlugin::<PolylineUniform>::default());
+        app.sub_app_mut(RenderApp)
+            .init_resource::<PolylinePipeline>()
+            .add_system_to_stage(RenderStage::Extract, extract_polylines)
+            .add_system_to_stage(RenderStage::Queue, queue_polyline_bind_group)
+            .add_system_to_stage(RenderStage::Queue, queue_polyline_view_bind_groups);
+    }
+}
 
 #[derive(Debug, Default, Component, Clone, TypeUuid)]
 #[uuid = "c76af88a-8afe-405c-9a64-0a7d845d2546"]
@@ -75,10 +92,81 @@ pub struct GpuPolyline {
     pub vertex_count: u32,
 }
 
+pub fn extract_polylines(
+    mut commands: Commands,
+    mut previous_len: Local<usize>,
+    query: Query<(
+        Entity,
+        &ComputedVisibility,
+        &GlobalTransform,
+        &Handle<Polyline>,
+    )>,
+) {
+    let mut values = Vec::with_capacity(*previous_len);
+    for (entity, computed_visibility, transform, handle) in query.iter() {
+        if !computed_visibility.is_visible {
+            continue;
+        }
+        let transform = transform.compute_matrix();
+        values.push((
+            entity,
+            (
+                handle.clone_weak(),
+                PolylineUniform {
+                    transform,
+                    inverse_transpose_model: transform.inverse().transpose(),
+                },
+            ),
+        ));
+    }
+    *previous_len = values.len();
+    commands.insert_or_spawn_batch(values);
+}
+
 #[derive(Clone)]
 pub struct PolylinePipeline {
     pub view_layout: BindGroupLayout,
     pub polyline_layout: BindGroupLayout,
+}
+
+impl FromWorld for PolylinePipeline {
+    fn from_world(world: &mut World) -> Self {
+        let render_device = world.get_resource::<RenderDevice>().unwrap();
+        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[
+                // View
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: true,
+                        min_binding_size: BufferSize::new(ViewUniform::std140_size_static() as u64),
+                    },
+                    count: None,
+                },
+            ],
+            label: Some("polyline_view_layout"),
+        });
+
+        let polyline_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: true,
+                    min_binding_size: BufferSize::new(PolylineUniform::std140_size_static() as u64),
+                },
+                count: None,
+            }],
+            label: Some("polyline_layout"),
+        });
+        PolylinePipeline {
+            view_layout,
+            polyline_layout,
+        }
+    }
 }
 
 impl SpecializedPipeline for PolylinePipeline {
@@ -198,9 +286,109 @@ pub struct PolylineBindGroup {
     pub value: BindGroup,
 }
 
+pub fn queue_polyline_bind_group(
+    mut commands: Commands,
+    polyline_pipeline: Res<PolylinePipeline>,
+    render_device: Res<RenderDevice>,
+    polyline_uniforms: Res<ComponentUniforms<PolylineUniform>>,
+) {
+    if let Some(binding) = polyline_uniforms.uniforms().binding() {
+        commands.insert_resource(PolylineBindGroup {
+            value: render_device.create_bind_group(&BindGroupDescriptor {
+                entries: &[BindGroupEntry {
+                    binding: 0,
+                    resource: binding,
+                }],
+                label: Some("polyline_bind_group"),
+                layout: &polyline_pipeline.polyline_layout,
+            }),
+        });
+    }
+}
+
 #[derive(Component)]
 pub struct PolylineViewBindGroup {
     pub value: BindGroup,
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn queue_polyline_view_bind_groups(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    polyline_pipeline: Res<PolylinePipeline>,
+    light_meta: Res<LightMeta>,
+    global_light_meta: Res<GlobalLightMeta>,
+    view_uniforms: Res<ViewUniforms>,
+    views: Query<(Entity, &ViewShadowBindings, &ViewClusterBindings)>,
+) {
+    if let (Some(view_binding), Some(_light_binding), Some(_point_light_binding)) = (
+        view_uniforms.uniforms.binding(),
+        light_meta.view_gpu_lights.binding(),
+        global_light_meta.gpu_point_lights.binding(),
+    ) {
+        for (entity, _view_shadow_bindings, _view_cluster_bindings) in views.iter() {
+            let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+                entries: &[
+                    BindGroupEntry {
+                        binding: 0,
+                        resource: view_binding.clone(),
+                    },
+                    /* Can add these bindings in the future if needed
+                    BindGroupEntry {
+                        binding: 1,
+                        resource: light_binding.clone(),
+                    },
+                    BindGroupEntry {
+                        binding: 2,
+                        resource: BindingResource::TextureView(
+                            &view_shadow_bindings.point_light_depth_texture_view,
+                        ),
+                    },
+                    BindGroupEntry {
+                        binding: 3,
+                        resource: BindingResource::Sampler(&shadow_pipeline.point_light_sampler),
+                    },
+                    BindGroupEntry {
+                        binding: 4,
+                        resource: BindingResource::TextureView(
+                            &view_shadow_bindings.directional_light_depth_texture_view,
+                        ),
+                    },
+                    BindGroupEntry {
+                        binding: 5,
+                        resource: BindingResource::Sampler(
+                            &shadow_pipeline.directional_light_sampler,
+                        ),
+                    },
+                    BindGroupEntry {
+                        binding: 6,
+                        resource: point_light_binding.clone(),
+                    },
+                    BindGroupEntry {
+                        binding: 7,
+                        resource: view_cluster_bindings
+                            .cluster_light_index_lists
+                            .binding()
+                            .unwrap(),
+                    },
+                    BindGroupEntry {
+                        binding: 8,
+                        resource: view_cluster_bindings
+                            .cluster_offsets_and_counts
+                            .binding()
+                            .unwrap(),
+                    },
+                    */
+                ],
+                label: Some("polyline_view_bind_group"),
+                layout: &polyline_pipeline.view_layout,
+            });
+
+            commands.entity(entity).insert(PolylineViewBindGroup {
+                value: view_bind_group,
+            });
+        }
+    }
 }
 
 pub struct SetPolylineBindGroup<const I: usize>;
@@ -213,14 +401,14 @@ impl<const I: usize> EntityRenderCommand for SetPolylineBindGroup<I> {
     fn render<'w>(
         _view: Entity,
         item: Entity,
-        (mesh_bind_group, mesh_query): SystemParamItem<'w, '_, Self::Param>,
+        (polyline_bind_group, polyline_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let mesh_index = mesh_query.get(item).unwrap();
+        let polyline_index = polyline_query.get(item).unwrap();
         pass.set_bind_group(
             I,
-            &mesh_bind_group.into_inner().value,
-            &[mesh_index.index()],
+            &polyline_bind_group.into_inner().value,
+            &[polyline_index.index()],
         );
         RenderCommandResult::Success
     }

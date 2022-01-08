@@ -1,6 +1,8 @@
 use bevy::{prelude::*, reflect::TypeUuid};
-use material::PolylineMaterial;
-use polyline::Polyline;
+pub use material::PolylineMaterial;
+use material::PolylineMaterialPlugin;
+pub use polyline::Polyline;
+use polyline::PolylineRenderPlugin;
 
 pub mod material;
 pub mod polyline;
@@ -29,7 +31,10 @@ impl Plugin for PolylinePlugin {
                 naga::ShaderStage::Vertex,
             ),
         );
-        app.add_asset::<PolylineMaterial>().add_asset::<Polyline>();
+        app.add_asset::<PolylineMaterial>()
+            .add_asset::<Polyline>()
+            .add_plugin(PolylineRenderPlugin)
+            .add_plugin(PolylineMaterialPlugin);
     }
 }
 
