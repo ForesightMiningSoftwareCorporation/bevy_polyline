@@ -26,14 +26,13 @@ layout(set = 3, binding = 0) uniform GlobalResources_resolution {
 };
 
 void main() {
-    vec3[] positions = {
-        { 0.0, -0.5, 0.0 },
-        { 0.0, -0.5, 1.0 },
-        { 0.0, 0.5, 1.0 },
-        { 0.0, -0.5, 0.0 },
-        { 0.0, 0.5, 1.0 },
-        { 0.0, 0.5, 0.0 }
-    };
+    vec3 positions[6];
+    positions[0] = vec3(0.0, -0.5, 0.0);
+    positions[1] = vec3(0.0, -0.5, 1.0);
+    positions[2] = vec3(0.0, 0.5, 1.0);
+    positions[3] = vec3(0.0, -0.5, 0.0);
+    positions[4] = vec3(0.0, 0.5, 1.0);
+    positions[5] = vec3(0.0, 0.5, 0.0);
 
     vec3 position = positions[gl_VertexIndex];
 
