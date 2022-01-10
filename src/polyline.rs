@@ -12,16 +12,7 @@ use bevy::{
         render_asset::{RenderAsset, RenderAssetPlugin, RenderAssets},
         render_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
         render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
-        render_resource::{
-            std140::AsStd140, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
-            BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendState, Buffer,
-            BufferBindingType, BufferInitDescriptor, BufferSize, BufferUsages, ColorTargetState,
-            ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, FragmentState,
-            FrontFace, MultisampleState, PolygonMode, PrimitiveState, PrimitiveTopology,
-            RenderPipelineDescriptor, ShaderStages, SpecializedPipeline, StencilFaceState,
-            StencilState, TextureFormat, VertexAttribute, VertexBufferLayout, VertexFormat,
-            VertexState, VertexStepMode,
-        },
+        render_resource::{std140::AsStd140, *},
         renderer::RenderDevice,
         texture::BevyDefault,
         view::{ViewUniform, ViewUniforms},
@@ -229,7 +220,7 @@ impl SpecializedPipeline for PolylinePipeline {
                     write_mask: ColorWrites::ALL,
                 }],
             }),
-            layout: Some(vec![self.view_layout.clone(), self.polyline_layout.clone()]),
+            layout: None, // This is set in `PolylineMaterialPipeline::specialize()`
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,

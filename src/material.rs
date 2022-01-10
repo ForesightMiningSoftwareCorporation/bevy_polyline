@@ -17,17 +17,8 @@ use bevy::{
     render::{
         render_asset::{RenderAsset, RenderAssetPlugin, RenderAssets},
         render_component::ExtractComponentPlugin,
-        render_phase::{
-            AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase,
-            SetItemPipeline, TrackedRenderPass,
-        },
-        render_resource::{
-            std140::{AsStd140, Std140},
-            BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
-            BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, Buffer,
-            BufferBindingType, BufferInitDescriptor, BufferSize, BufferUsages, RenderPipelineCache,
-            RenderPipelineDescriptor, ShaderStages, SpecializedPipeline, SpecializedPipelines,
-        },
+        render_phase::*,
+        render_resource::{std140::AsStd140, std140::Std140, *},
         renderer::RenderDevice,
         view::{ExtractedView, ViewUniformOffset, VisibleEntities},
         RenderApp, RenderStage,
@@ -208,8 +199,8 @@ impl SpecializedPipeline for PolylineMaterialPipeline {
     type Key = PolylinePipelineKey;
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let mut descriptor = self.polyline_pipeline.specialize(key);
-        descriptor.vertex.shader = self.vertex_shader.clone();
-        descriptor.fragment.as_mut().unwrap().shader = self.fragment_shader.clone();
+        //descriptor.vertex.shader = self.vertex_shader.clone();
+        //descriptor.fragment.as_mut().unwrap().shader = self.fragment_shader.clone();
         descriptor.layout = Some(vec![
             self.polyline_pipeline.view_layout.clone(),
             self.material_layout.clone(),
