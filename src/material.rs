@@ -11,7 +11,6 @@ use bevy::{
         lifetimeless::{Read, SQuery, SRes},
         SystemParamItem,
     },
-    pbr::ViewLightsUniformOffset,
     prelude::*,
     reflect::TypeUuid,
     render::{
@@ -59,7 +58,7 @@ impl PolylineMaterial {
         render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
                 binding: 0,
-                visibility: ShaderStages::FRAGMENT,
+                visibility: ShaderStages::VERTEX,
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: false,
@@ -203,8 +202,8 @@ impl SpecializedPipeline for PolylineMaterialPipeline {
         //descriptor.fragment.as_mut().unwrap().shader = self.fragment_shader.clone();
         descriptor.layout = Some(vec![
             self.polyline_pipeline.view_layout.clone(),
-            self.material_layout.clone(),
             self.polyline_pipeline.polyline_layout.clone(),
+            self.material_layout.clone(),
         ]);
         descriptor
     }
@@ -213,8 +212,8 @@ impl SpecializedPipeline for PolylineMaterialPipeline {
 type DrawMaterial = (
     SetItemPipeline,
     SetPolylineViewBindGroup<0>,
-    SetMaterialBindGroup<1>,
-    SetPolylineBindGroup<2>,
+    SetPolylineBindGroup<1>,
+    SetMaterialBindGroup<2>,
     DrawPolyline,
 );
 
@@ -222,7 +221,7 @@ pub struct SetPolylineViewBindGroup<const I: usize>;
 impl<const I: usize> EntityRenderCommand for SetPolylineViewBindGroup<I> {
     type Param = SQuery<(
         Read<ViewUniformOffset>,
-        Read<ViewLightsUniformOffset>,
+        //Read<ViewLightsUniformOffset>,
         Read<PolylineViewBindGroup>,
     )>;
     #[inline]
@@ -232,11 +231,11 @@ impl<const I: usize> EntityRenderCommand for SetPolylineViewBindGroup<I> {
         view_query: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let (view_uniform, view_lights, mesh_view_bind_group) = view_query.get(view).unwrap();
+        let (view_uniform, mesh_view_bind_group) = view_query.get(view).unwrap();
         pass.set_bind_group(
             I,
             &mesh_view_bind_group.value,
-            &[view_uniform.offset, view_lights.offset],
+            &[view_uniform.offset], //, view_lights.offset],
         );
 
         RenderCommandResult::Success

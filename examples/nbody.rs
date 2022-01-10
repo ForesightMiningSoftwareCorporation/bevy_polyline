@@ -9,7 +9,7 @@ use rand::{prelude::*, Rng};
 use ringbuffer::{ConstGenericRingBuffer, RingBufferExt, RingBufferWrite};
 
 const NUM_BODIES: usize = 500;
-const TRAIL_LENGTH: usize = 8192;
+const TRAIL_LENGTH: usize = 2048;
 const MINIMUM_LINE_SEGMENT_LENGTH_SQUARED: f32 = 0.1;
 
 fn main() {

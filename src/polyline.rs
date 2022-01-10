@@ -82,7 +82,7 @@ impl RenderAsset for Polyline {
 #[derive(AsStd140, Component, Clone)]
 pub struct PolylineUniform {
     pub transform: Mat4,
-    pub inverse_transpose_model: Mat4,
+    //pub inverse_transpose_model: Mat4,
 }
 
 /// The GPU-representation of a [`Polyline`]
@@ -114,7 +114,7 @@ pub fn extract_polylines(
                 handle.clone_weak(),
                 PolylineUniform {
                     transform,
-                    inverse_transpose_model: transform.inverse().transpose(),
+                    //inverse_transpose_model: transform.inverse().transpose(),
                 },
             ),
         ));
@@ -137,7 +137,7 @@ impl FromWorld for PolylinePipeline {
                 // View
                 BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
+                    visibility: ShaderStages::VERTEX,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
@@ -152,7 +152,7 @@ impl FromWorld for PolylinePipeline {
         let polyline_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
                 binding: 0,
-                visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
+                visibility: ShaderStages::VERTEX,
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: true,
@@ -172,13 +172,16 @@ impl FromWorld for PolylinePipeline {
 impl SpecializedPipeline for PolylinePipeline {
     type Key = PolylinePipelineKey;
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let vertex_array_stride = 32;
         let vertex_attributes = vec![
-            // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
             VertexAttribute {
                 format: VertexFormat::Float32x3,
                 offset: 0,
                 shader_location: 0,
+            },
+            VertexAttribute {
+                format: VertexFormat::Float32x3,
+                offset: 12,
+                shader_location: 1,
             },
         ];
         let shader_defs = Vec::new();
@@ -205,8 +208,8 @@ impl SpecializedPipeline for PolylinePipeline {
                 entry_point: "main".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![VertexBufferLayout {
-                    array_stride: vertex_array_stride,
-                    step_mode: VertexStepMode::Vertex,
+                    array_stride: 12,
+                    step_mode: VertexStepMode::Instance,
                     attributes: vertex_attributes,
                 }],
             },
@@ -225,7 +228,7 @@ impl SpecializedPipeline for PolylinePipeline {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
                 unclipped_depth: false,
-                polygon_mode: PolygonMode::Fill,
+                polygon_mode: PolygonMode::Line,
                 conservative: false,
                 topology: PrimitiveTopology::TriangleList,
                 strip_index_format: None,
@@ -427,7 +430,8 @@ impl EntityRenderCommand for DrawPolyline {
         let pl_handle = pl_query.get(item).unwrap();
         if let Some(gpu_polyline) = polylines.into_inner().get(pl_handle) {
             pass.set_vertex_buffer(0, gpu_polyline.vertex_buffer.slice(..));
-            pass.draw(0..gpu_polyline.vertex_count, 0..1);
+            let num_instances = gpu_polyline.vertex_count - 1;
+            pass.draw(0..6, 0..num_instances);
             RenderCommandResult::Success
         } else {
             RenderCommandResult::Failure
