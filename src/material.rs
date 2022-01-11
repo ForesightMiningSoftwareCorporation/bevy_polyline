@@ -40,7 +40,7 @@ impl Default for PolylineMaterial {
             width: 10.0,
             color: Color::WHITE,
             perspective: false,
-            alpha_mode: AlphaMode::Blend,
+            alpha_mode: AlphaMode::Opaque,
         }
     }
 }
