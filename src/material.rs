@@ -95,6 +95,7 @@ pub struct PolylineMaterialUniform {
 pub struct GpuPolylineMaterial {
     pub buffer: Buffer,
     pub alpha_mode: AlphaMode,
+    pub perspective: bool,
     pub bind_group: BindGroup,
 }
 
@@ -145,8 +146,9 @@ impl RenderAsset for PolylineMaterial {
 
         Ok(GpuPolylineMaterial {
             buffer,
-            bind_group,
+            perspective: material.perspective,
             alpha_mode: material.alpha_mode,
+            bind_group,
         })
     }
 }
@@ -198,6 +200,12 @@ impl SpecializedPipeline for PolylineMaterialPipeline {
     type Key = PolylinePipelineKey;
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let mut descriptor = self.polyline_pipeline.specialize(key);
+        if key.contains(PolylinePipelineKey::PERSPECTIVE) {
+            descriptor
+                .vertex
+                .shader_defs
+                .push("POLYLINE_PERSPECTIVE".to_string());
+        }
         //descriptor.vertex.shader = self.vertex_shader.clone();
         //descriptor.fragment.as_mut().unwrap().shader = self.fragment_shader.clone();
         descriptor.layout = Some(vec![
@@ -302,11 +310,17 @@ pub fn queue_material_polylines(
 
         let inverse_view_matrix = view.transform.compute_matrix().inverse();
         let inverse_view_row_2 = inverse_view_matrix.row(2);
-        let polyline_key = PolylinePipelineKey::from_msaa_samples(msaa.samples);
+        let mut polyline_key = PolylinePipelineKey::from_msaa_samples(msaa.samples);
 
         for visible_entity in &visible_entities.entities {
             if let Ok((material_handle, polyline_uniform)) = material_meshes.get(*visible_entity) {
                 if let Some(material) = render_materials.get(material_handle) {
+                    if material.alpha_mode == AlphaMode::Blend {
+                        polyline_key |= PolylinePipelineKey::TRANSPARENT_MAIN_PASS
+                    }
+                    if material.perspective {
+                        polyline_key |= PolylinePipelineKey::PERSPECTIVE
+                    }
                     let pipeline_id =
                         pipelines.specialize(&mut pipeline_cache, &material_pipeline, polyline_key);
 

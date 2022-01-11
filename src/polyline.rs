@@ -228,7 +228,7 @@ impl SpecializedPipeline for PolylinePipeline {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
                 unclipped_depth: false,
-                polygon_mode: PolygonMode::Line,
+                polygon_mode: PolygonMode::Fill,
                 conservative: false,
                 topology: PrimitiveTopology::TriangleList,
                 strip_index_format: None,
@@ -265,7 +265,7 @@ bitflags::bitflags! {
     /// MSAA uses the highest 6 bits for the MSAA sample count - 1 to support up to 64x MSAA.
     pub struct PolylinePipelineKey: u32 {
         const NONE = 0;
-        const NOOP = (1 << 0);
+        const PERSPECTIVE = (1 << 0);
         const TRANSPARENT_MAIN_PASS = (1 << 1);
         const MSAA_RESERVED_BITS = PolylinePipelineKey::MSAA_MASK_BITS << PolylinePipelineKey::MSAA_SHIFT_BITS;
     }
@@ -430,7 +430,7 @@ impl EntityRenderCommand for DrawPolyline {
         let pl_handle = pl_query.get(item).unwrap();
         if let Some(gpu_polyline) = polylines.into_inner().get(pl_handle) {
             pass.set_vertex_buffer(0, gpu_polyline.vertex_buffer.slice(..));
-            let num_instances = gpu_polyline.vertex_count - 1;
+            let num_instances = gpu_polyline.vertex_count.max(1) - 1;
             pass.draw(0..6, 0..num_instances);
             RenderCommandResult::Success
         } else {

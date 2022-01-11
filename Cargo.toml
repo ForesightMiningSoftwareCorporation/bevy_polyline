@@ -16,5 +16,8 @@ version = "*"
 
 [dev-dependencies]
 lazy_static = "1.4.0"
-rand = "0.8.3"
-ringbuffer = "*"
+rand = "0.8.4"
+ringbuffer = "0.8.2"
+
+[profile.release]
+lto = "yes"

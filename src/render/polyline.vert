@@ -21,7 +21,7 @@ layout(set = 1, binding = 0) uniform Polyline {
 };
 
 layout(set = 2, binding = 0) uniform PolylineMaterial {
-    float width;
+    float line_width;
     vec4 color;
     int perspective;
     float alpha_cutoff;    
@@ -40,9 +40,13 @@ void main() {
 
     // algorithm based on https://wwwtyro.net/2019/11/18/instanced-lines.html
     vec4 clip0 = ViewProj * Model * vec4(I_Point0, 1);
-    clip0.z = (clip0.z*2)+1;
+    clip0.z = clip0.z + line_width * 0.00005;
+    //clip0.z = (clip0.z * -1)+1; //Trying to remap depth due to bevy using infinite-revered-z projection
     vec4 clip1 = ViewProj * Model * vec4(I_Point1, 1);
-    clip1.z = (clip1.z*2)+1;
+    clip1.z = clip1.z + line_width * 0.00005;
+
+    //clip1.z = (clip1.z * -1)+1; //Trying to remap depth due to bevy using infinite-revered-z projection
+    
     vec4 clip = mix(clip0, clip1, position.z);
     
     vec2 resolution = vec2(width, height);
@@ -52,18 +56,20 @@ void main() {
     vec2 xBasis = normalize(screen1 - screen0);
     vec2 yBasis = vec2(-xBasis.y, xBasis.x);
 
-    //if (perspective == 1.0) { // this doesn't work; how to use ifdef?
+    #ifdef POLYLINE_PERSPECTIVE
         vec4 color = color;
-        float width = width / clip.w;
+        float line_width = line_width / clip.w;
         // Line thinness fade from https://acegikmo.com/shapes/docs/#anti-aliasing
-        if (width < 1.0) {
-            color.a *= width;
-            width = 1.0;
+        if (line_width < 1.0) {
+            color.a *= line_width;
+            line_width = 1.0;
         }
-    //}
+    #endif
 
-    vec2 pt0 = screen0 + width * (position.x * xBasis + position.y * yBasis);
-    vec2 pt1 = screen1 + width * (position.x * xBasis + position.y * yBasis);
+    
+
+    vec2 pt0 = screen0 + line_width * (position.x * xBasis + position.y * yBasis);
+    vec2 pt1 = screen1 + line_width * (position.x * xBasis + position.y * yBasis);
     vec2 pt = mix(pt0, pt1, position.z);
 
     gl_Position = vec4(clip.w * ((2.0 * pt) / resolution - 1.0), clip.z, clip.w);
