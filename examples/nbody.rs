@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
@@ -9,7 +11,7 @@ use rand::{prelude::*, Rng};
 use ringbuffer::{ConstGenericRingBuffer, RingBufferExt, RingBufferWrite};
 
 const NUM_BODIES: usize = 500;
-const TRAIL_LENGTH: usize = 2048;
+const TRAIL_LENGTH: usize = 8192;
 const MINIMUM_LINE_SEGMENT_LENGTH_SQUARED: f32 = 0.1;
 
 fn main() {
@@ -41,31 +43,31 @@ fn setup(
 ) {
     let mut rng = StdRng::seed_from_u64(0);
     for _index in 0..NUM_BODIES {
+        let r = rng.gen_range(2f32..400f32);
+        let theta = rng.gen_range(0f32..2.0 * PI);
         let position = Vec3::new(
-            rng.gen_range(-100f32..100f32),
-            rng.gen_range(-100f32..100f32),
-            rng.gen_range(-100f32..100f32),
+            r * f32::cos(theta),
+            rng.gen_range(-10f32..10f32),
+            r * f32::sin(theta),
         );
+        let size = rng.gen_range(5f32..500f32);
         commands
             .spawn_bundle((
                 Body {
-                    mass: 1_000.0,
+                    mass: size,
                     position,
+                    velocity: position.cross(Vec3::Y).normalize() * 0.00015,
                     ..Default::default()
                 },
                 Trail(ConstGenericRingBuffer::<Vec3, TRAIL_LENGTH>::new()),
             ))
             .insert_bundle(PolylineBundle {
                 polyline: polylines.add(Polyline {
-                    vertices: Vec::with_capacity(TRAIL_LENGTH),
+                    vertices: vec![Vec3::ZERO; TRAIL_LENGTH],
                 }),
                 material: polyline_materials.add(PolylineMaterial {
-                    width: 200.0,
-                    color: Color::rgb_linear(
-                        rng.gen_range(0.0..1.0),
-                        rng.gen_range(0.0..1.0),
-                        rng.gen_range(0.0..1.0),
-                    ),
+                    width: size,
+                    color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, 0.5),
                     perspective: true,
                     ..Default::default()
                 }),
@@ -76,7 +78,8 @@ fn setup(
     // camera
     commands
         .spawn_bundle(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(0.0, 0.0, -700.0).looking_at(Vec3::ZERO, Vec3::Y),
+            transform: Transform::from_xyz(0.0, 400.0, -700.0)
+                .looking_at(Vec3::new(0.0, -100.0, 0.0), Vec3::Y),
             ..PerspectiveCameraBundle::new_3d()
         })
         .insert(Rotates);
@@ -89,7 +92,7 @@ struct Rotates;
 fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Rotates>>) {
     for mut transform in query.iter_mut() {
         *transform = Transform::from_rotation(Quat::from_rotation_y(
-            (4.0 * std::f32::consts::PI / 20.0) * time.delta_seconds(),
+            (std::f32::consts::PI / 20.0) * time.delta_seconds(),
         )) * *transform;
     }
 }
@@ -138,7 +141,7 @@ impl Simulation {
         None
     }
 }
-#[derive(Component)]
+#[derive(Component, Clone, Default, Debug)]
 struct Trail(ConstGenericRingBuffer<Vec3, TRAIL_LENGTH>);
 
 const G: f32 = 6.674_30E-11;
@@ -147,7 +150,8 @@ const EPSILON: f32 = 1.;
 fn nbody_system(
     time: Res<Time>,
     mut simulation: ResMut<Simulation>,
-    mut query: Query<(Entity, &mut Body, &mut Trail, &mut Polyline)>,
+    mut polylines: ResMut<Assets<Polyline>>,
+    mut query: Query<(Entity, &mut Body, &mut Trail, &Handle<Polyline>)>,
 ) {
     let mut bodies = query.iter_mut().collect::<Vec<_>>();
     // dbg!(&bodies);
@@ -192,19 +196,19 @@ fn nbody_system(
     }
 
     // Update Trails
-    bodies
+    query
         .iter_mut()
-        .for_each(|(_entity, body, trail, polyline)| {
+        .for_each(|(_entity, body, mut trail, polyline)| {
             if let Some(position) = trail.0.back() {
                 if (*position - body.position).length_squared()
                     > MINIMUM_LINE_SEGMENT_LENGTH_SQUARED
                 {
                     trail.0.push(body.position);
-                    polyline.vertices = trail.0.to_vec();
+                    polylines.get_mut(polyline).unwrap().vertices = trail.0.to_vec();
                 }
             } else {
                 trail.0.push(body.position);
-                polyline.vertices = trail.0.to_vec();
+                polylines.get_mut(polyline).unwrap().vertices = trail.0.to_vec();
             }
         });
 }

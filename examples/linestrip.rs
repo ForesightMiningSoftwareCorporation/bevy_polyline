@@ -21,19 +21,19 @@ fn setup(
     commands.spawn_bundle(PolylineBundle {
         polyline: polylines.add(Polyline {
             vertices: vec![
-                Vec3::new(-0.5, 0.0, -0.5),
-                Vec3::new(0.5, 0.0, -0.5),
-                Vec3::new(0.5, 1.0, -0.5),
-                Vec3::new(-0.5, 1.0, -0.5),
-                Vec3::new(-0.5, 1.0, 0.5),
-                Vec3::new(0.5, 1.0, 0.5),
-                Vec3::new(0.5, 0.0, 0.5),
-                Vec3::new(-0.5, 0.0, 0.5),
+                Vec3::new(-0.5, -0.5, -0.5),
+                Vec3::new(0.5, -0.5, -0.5),
+                Vec3::new(0.5, 0.5, -0.5),
+                Vec3::new(-0.5, 0.5, -0.5),
+                Vec3::new(-0.5, 0.5, 0.5),
+                Vec3::new(0.5, 0.5, 0.5),
+                Vec3::new(0.5, -0.5, 0.5),
+                Vec3::new(-0.5, -0.5, 0.5),
             ],
             ..Default::default()
         }),
         material: polyline_materials.add(PolylineMaterial {
-            width: 5.0,
+            width: 3.0,
             color: Color::RED,
             perspective: false,
             ..Default::default()
@@ -44,13 +44,14 @@ fn setup(
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
         material: standard_materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        transform: Transform::from_xyz(0.0, -0.5, 0.0),
         ..Default::default()
     });
+
     // cube
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
         material: standard_materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..Default::default()
     });
 
