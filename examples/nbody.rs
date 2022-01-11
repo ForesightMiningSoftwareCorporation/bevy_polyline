@@ -11,7 +11,7 @@ use rand::{prelude::*, Rng};
 use ringbuffer::{ConstGenericRingBuffer, RingBufferExt, RingBufferWrite};
 
 const NUM_BODIES: usize = 500;
-const TRAIL_LENGTH: usize = 8192;
+const TRAIL_LENGTH: usize = 2048;
 const MINIMUM_LINE_SEGMENT_LENGTH_SQUARED: f32 = 0.1;
 
 fn main() {
@@ -43,20 +43,20 @@ fn setup(
 ) {
     let mut rng = StdRng::seed_from_u64(0);
     for _index in 0..NUM_BODIES {
-        let r = rng.gen_range(2f32..400f32);
+        let r = rng.gen_range(2f32..800f32);
         let theta = rng.gen_range(0f32..2.0 * PI);
         let position = Vec3::new(
             r * f32::cos(theta),
-            rng.gen_range(-10f32..10f32),
+            rng.gen_range(-5f32..5f32),
             r * f32::sin(theta),
         );
-        let size = rng.gen_range(5f32..500f32);
+        let size = rng.gen_range(50f32..2000f32);
         commands
             .spawn_bundle((
                 Body {
                     mass: size,
                     position,
-                    velocity: position.cross(Vec3::Y).normalize() * 0.00015,
+                    velocity: position.cross(Vec3::Y).normalize() * 0.00018,
                     ..Default::default()
                 },
                 Trail(ConstGenericRingBuffer::<Vec3, TRAIL_LENGTH>::new()),
@@ -67,7 +67,7 @@ fn setup(
                 }),
                 material: polyline_materials.add(PolylineMaterial {
                     width: size,
-                    color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, 0.5),
+                    color: Color::hsl(rng.gen_range(160.0..250.0), 1.0, rng.gen_range(0.4..0.7)),
                     perspective: true,
                     ..Default::default()
                 }),
@@ -77,11 +77,7 @@ fn setup(
 
     // camera
     commands
-        .spawn_bundle(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(0.0, 400.0, -700.0)
-                .looking_at(Vec3::new(0.0, -100.0, 0.0), Vec3::Y),
-            ..PerspectiveCameraBundle::new_3d()
-        })
+        .spawn_bundle(PerspectiveCameraBundle::new_3d())
         .insert(Rotates);
 }
 
@@ -91,9 +87,14 @@ struct Rotates;
 
 fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Rotates>>) {
     for mut transform in query.iter_mut() {
-        *transform = Transform::from_rotation(Quat::from_rotation_y(
-            (std::f32::consts::PI / 20.0) * time.delta_seconds(),
-        )) * *transform;
+        let t = time.seconds_since_startup() as f32;
+        let r = 1100.0;
+        *transform = Transform::from_xyz(
+            r * f32::cos(t * 0.1),
+            (t * 0.1).sin() * 2000.0,
+            r * f32::sin(t * 0.1),
+        )
+        .looking_at(Vec3::ZERO, Vec3::Y);
     }
 }
 
@@ -108,7 +109,6 @@ struct Body {
 #[derive(Debug)]
 struct Simulation {
     pub accumulator: f32,
-    pub seconds_since_startup: f64,
     pub is_paused: bool,
     pub scale: f32,
     pub timestep: f32,
@@ -117,7 +117,6 @@ struct Simulation {
 impl Default for Simulation {
     fn default() -> Simulation {
         Simulation {
-            seconds_since_startup: 0.0,
             accumulator: 0.0,
             is_paused: false,
             scale: 5e4,
