@@ -7,8 +7,6 @@
 
 Bevy Polyline is a plugin for [Bevy Engine](https://bevyengine.org/) that adds instanced rendering of `Polyline`s. The plugin comes courtesy of Foresight Mining Software Corporation who sponsor its creation and maintenance.
 
-Here's quick demo:
-
 ![nbody demo](nbody.gif)
 
 ## Implementation
