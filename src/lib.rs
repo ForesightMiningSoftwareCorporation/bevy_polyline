@@ -37,7 +37,7 @@ impl Plugin for PolylinePlugin {
     }
 }
 
-#[derive(Bundle)]
+#[derive(Bundle, Default)]
 pub struct PolylineBundle {
     pub polyline: Handle<Polyline>,
     pub material: Handle<PolylineMaterial>,
@@ -47,17 +47,4 @@ pub struct PolylineBundle {
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub computed_visibility: ComputedVisibility,
-}
-
-impl Default for PolylineBundle {
-    fn default() -> Self {
-        Self {
-            polyline: Default::default(),
-            material: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-            visibility: Default::default(),
-            computed_visibility: Default::default(),
-        }
-    }
 }

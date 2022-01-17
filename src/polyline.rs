@@ -69,7 +69,7 @@ impl RenderAsset for Polyline {
         let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
             label: Some("Polyline Vertex Buffer"),
-            contents: &vertex_buffer_data,
+            contents: vertex_buffer_data,
         });
 
         Ok(GpuPolyline {
