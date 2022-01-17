@@ -21,10 +21,8 @@ layout(set = 1, binding = 0) uniform Polyline {
 };
 
 layout(set = 2, binding = 0) uniform PolylineMaterial {
-    float line_width;
     vec4 color;
-    int perspective;
-    float alpha_cutoff;    
+    float line_width;
 };
 
 void main() {

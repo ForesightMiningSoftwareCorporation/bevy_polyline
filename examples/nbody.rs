@@ -2,6 +2,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    math::Vec3A,
     prelude::*,
 };
 use bevy_polyline::{Polyline, PolylineBundle, PolylineMaterial, PolylinePlugin};
@@ -11,13 +12,13 @@ use rand::{prelude::*, Rng};
 use ringbuffer::{ConstGenericRingBuffer, RingBufferExt, RingBufferWrite};
 
 const NUM_BODIES: usize = 500;
-const TRAIL_LENGTH: usize = 2048;
-const MINIMUM_LINE_SEGMENT_LENGTH_SQUARED: f32 = 0.1;
+const TRAIL_LENGTH: usize = 1024;
+const MINIMUM_ANGLE: f32 = 1.48341872; // == acos(5 degrees)
 
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
-            vsync: true,
+            vsync: false,
             ..Default::default()
         })
         .insert_resource(ClearColor(Color::BLACK))
@@ -45,7 +46,7 @@ fn setup(
     for _index in 0..NUM_BODIES {
         let r = rng.gen_range(2f32..800f32);
         let theta = rng.gen_range(0f32..2.0 * PI);
-        let position = Vec3::new(
+        let position = Vec3A::new(
             r * f32::cos(theta),
             rng.gen_range(-5f32..5f32),
             r * f32::sin(theta),
@@ -56,18 +57,18 @@ fn setup(
                 Body {
                     mass: size,
                     position,
-                    velocity: position.cross(Vec3::Y).normalize() * 0.00018,
+                    velocity: position.cross(Vec3A::Y).normalize() * 0.00018,
                     ..Default::default()
                 },
-                Trail(ConstGenericRingBuffer::<Vec3, TRAIL_LENGTH>::new()),
+                Trail(ConstGenericRingBuffer::<Vec3A, TRAIL_LENGTH>::new()),
             ))
             .insert_bundle(PolylineBundle {
                 polyline: polylines.add(Polyline {
-                    vertices: vec![Vec3::ZERO; TRAIL_LENGTH],
+                    vertices: Vec::with_capacity(TRAIL_LENGTH),
                 }),
                 material: polyline_materials.add(PolylineMaterial {
-                    width: size,
-                    color: Color::hsl(rng.gen_range(160.0..250.0), 1.0, rng.gen_range(0.4..0.7)),
+                    width: size / 10000.0,
+                    color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, rng.gen_range(0.4..0.7)),
                     perspective: true,
                     ..Default::default()
                 }),
@@ -101,9 +102,9 @@ fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Rotates
 #[derive(Clone, Debug, Default, Component)]
 struct Body {
     mass: f32,
-    acceleration: Vec3,
-    velocity: Vec3,
-    position: Vec3,
+    acceleration: Vec3A,
+    velocity: Vec3A,
+    position: Vec3A,
 }
 
 #[derive(Debug)]
@@ -141,7 +142,7 @@ impl Simulation {
     }
 }
 #[derive(Component, Clone, Default, Debug)]
-struct Trail(ConstGenericRingBuffer<Vec3, TRAIL_LENGTH>);
+struct Trail(ConstGenericRingBuffer<Vec3A, TRAIL_LENGTH>);
 
 const G: f32 = 6.674_30E-11;
 const EPSILON: f32 = 1.;
@@ -162,7 +163,7 @@ fn nbody_system(
         for substep in 0..3 {
             // Clear accelerations and update positions
             for (_, body, _, _) in bodies.iter_mut() {
-                body.acceleration = Vec3::ZERO;
+                body.acceleration = Vec3A::ZERO;
                 let dx = (*CS)[substep] * body.velocity * dt;
                 body.position += dx;
             }
@@ -195,21 +196,37 @@ fn nbody_system(
     }
 
     // Update Trails
-    query
-        .iter_mut()
-        .for_each(|(_entity, body, mut trail, polyline)| {
-            if let Some(position) = trail.0.back() {
-                if (*position - body.position).length_squared()
-                    > MINIMUM_LINE_SEGMENT_LENGTH_SQUARED
-                {
-                    trail.0.push(body.position);
-                    polylines.get_mut(polyline).unwrap().vertices = trail.0.to_vec();
-                }
+    query.for_each_mut(|(_, body, mut trail, polyline)| {
+        if let Some(position) = trail.0.back() {
+            let last_vec = *position - body.position;
+            let last_last_vec = if let Some(position) = trail.0.get(-2) {
+                *position - body.position
             } else {
+                last_vec
+            };
+            let gt_min_angle = last_vec.dot(last_last_vec) > MINIMUM_ANGLE;
+            if gt_min_angle {
                 trail.0.push(body.position);
-                polylines.get_mut(polyline).unwrap().vertices = trail.0.to_vec();
+                polylines.get_mut(polyline).unwrap().vertices =
+                    trail.0.iter().map(|v| Vec3::from(*v)).collect()
+            } else {
+                // If the last point didn't actually add much of a curve, just overwrite it.
+                if polylines.get_mut(polyline).unwrap().vertices.len() > 1 {
+                    *trail.0.get_mut(-1).unwrap() = body.position;
+                    *polylines
+                        .get_mut(polyline)
+                        .unwrap()
+                        .vertices
+                        .last_mut()
+                        .unwrap() = body.position.into();
+                }
             }
-        });
+        } else {
+            trail.0.push(body.position);
+            polylines.get_mut(polyline).unwrap().vertices =
+                trail.0.iter().map(|v| Vec3::from(*v)).collect()
+        }
+    });
 }
 
 lazy_static! {
