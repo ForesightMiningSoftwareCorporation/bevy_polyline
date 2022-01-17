@@ -31,7 +31,6 @@ pub struct PolylineMaterial {
     pub width: f32,
     pub color: Color,
     pub perspective: bool,
-    pub alpha_mode: AlphaMode,
 }
 
 impl Default for PolylineMaterial {
@@ -40,7 +39,6 @@ impl Default for PolylineMaterial {
             width: 10.0,
             color: Color::WHITE,
             perspective: false,
-            alpha_mode: AlphaMode::Opaque,
         }
     }
 }
@@ -86,17 +84,15 @@ impl PolylineMaterial {
 
 #[derive(AsStd140, Component, Clone)]
 pub struct PolylineMaterialUniform {
-    pub width: f32,
     pub color: Vec4,
-    pub perspective: u32,
-    pub alpha_cutoff: f32,
+    pub width: f32,
 }
 
 pub struct GpuPolylineMaterial {
     pub buffer: Buffer,
-    pub alpha_mode: AlphaMode,
     pub perspective: bool,
     pub bind_group: BindGroup,
+    pub alpha_mode: AlphaMode,
 }
 
 impl RenderAsset for PolylineMaterial {
@@ -115,17 +111,9 @@ impl RenderAsset for PolylineMaterial {
         Self::PreparedAsset,
         bevy::render::render_asset::PrepareAssetError<Self::ExtractedAsset>,
     > {
-        let mut alpha_cutoff = 0.5;
-        match material.alpha_mode {
-            AlphaMode::Opaque => (),
-            AlphaMode::Mask(c) => alpha_cutoff = c,
-            AlphaMode::Blend => (),
-        };
         let value = PolylineMaterialUniform {
             width: material.width,
             color: material.color.as_linear_rgba_f32().into(),
-            perspective: material.perspective.into(),
-            alpha_cutoff,
         };
         let value_std140 = value.as_std140();
 
@@ -144,10 +132,16 @@ impl RenderAsset for PolylineMaterial {
             layout: &polyline_pipeline.material_layout,
         });
 
+        let alpha_mode = if material.color.a() < 1.0 {
+            AlphaMode::Blend
+        } else {
+            AlphaMode::Opaque
+        };
+
         Ok(GpuPolylineMaterial {
             buffer,
             perspective: material.perspective,
-            alpha_mode: material.alpha_mode,
+            alpha_mode,
             bind_group,
         })
     }
