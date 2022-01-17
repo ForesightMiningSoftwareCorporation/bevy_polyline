@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
@@ -9,62 +11,65 @@ use rand::{prelude::*, Rng};
 use ringbuffer::{ConstGenericRingBuffer, RingBufferExt, RingBufferWrite};
 
 const NUM_BODIES: usize = 500;
-const TRAIL_LENGTH: usize = 8192;
+const TRAIL_LENGTH: usize = 2048;
 const MINIMUM_LINE_SEGMENT_LENGTH_SQUARED: f32 = 0.1;
 
 fn main() {
-    let mut app = App::build();
-
-    app.insert_resource(WindowDescriptor {
-        vsync: true,
-        ..Default::default()
-    })
-    .insert_resource(ClearColor(Color::BLACK))
-    .insert_resource(Msaa { samples: 4 })
-    .insert_resource(Simulation {
-        scale: 1e5,
-        ..Default::default()
-    })
-    .add_plugins(DefaultPlugins)
-    .add_plugin(PolylinePlugin)
-    .add_startup_system(setup.system())
-    .add_system(nbody_system.system())
-    .add_system(rotator_system.system())
-    .add_plugin(FrameTimeDiagnosticsPlugin::default())
-    .add_plugin(LogDiagnosticsPlugin::default());
-
-    app.run();
+    App::new()
+        .insert_resource(WindowDescriptor {
+            vsync: true,
+            ..Default::default()
+        })
+        .insert_resource(ClearColor(Color::BLACK))
+        .insert_resource(Msaa { samples: 4 })
+        .insert_resource(Simulation {
+            scale: 1e5,
+            ..Default::default()
+        })
+        .add_plugins(DefaultPlugins)
+        .add_plugin(PolylinePlugin)
+        .add_startup_system(setup.system())
+        .add_system(nbody_system.system())
+        .add_system(rotator_system.system())
+        .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        .add_plugin(LogDiagnosticsPlugin::default())
+        .run();
 }
 
-fn setup(mut commands: Commands, mut polyline_materials: ResMut<Assets<PolylineMaterial>>) {
+fn setup(
+    mut commands: Commands,
+    mut polyline_materials: ResMut<Assets<PolylineMaterial>>,
+    mut polylines: ResMut<Assets<Polyline>>,
+) {
     let mut rng = StdRng::seed_from_u64(0);
     for _index in 0..NUM_BODIES {
+        let r = rng.gen_range(2f32..800f32);
+        let theta = rng.gen_range(0f32..2.0 * PI);
         let position = Vec3::new(
-            rng.gen_range(-100f32..100f32),
-            rng.gen_range(-100f32..100f32),
-            rng.gen_range(-100f32..100f32),
+            r * f32::cos(theta),
+            rng.gen_range(-5f32..5f32),
+            r * f32::sin(theta),
         );
+        let size = rng.gen_range(50f32..2000f32);
         commands
             .spawn_bundle((
                 Body {
-                    mass: 1_000.0,
+                    mass: size,
                     position,
+                    velocity: position.cross(Vec3::Y).normalize() * 0.00018,
                     ..Default::default()
                 },
-                ConstGenericRingBuffer::<Vec3, TRAIL_LENGTH>::new(),
+                Trail(ConstGenericRingBuffer::<Vec3, TRAIL_LENGTH>::new()),
             ))
             .insert_bundle(PolylineBundle {
-                polyline: Polyline {
-                    vertices: Vec::with_capacity(TRAIL_LENGTH),
-                },
+                polyline: polylines.add(Polyline {
+                    vertices: vec![Vec3::ZERO; TRAIL_LENGTH],
+                }),
                 material: polyline_materials.add(PolylineMaterial {
-                    width: 200.0,
-                    color: Color::rgb_linear(
-                        rng.gen_range(0.0..1.0),
-                        rng.gen_range(0.0..1.0),
-                        rng.gen_range(0.0..1.0),
-                    ),
+                    width: size,
+                    color: Color::hsl(rng.gen_range(160.0..250.0), 1.0, rng.gen_range(0.4..0.7)),
                     perspective: true,
+                    ..Default::default()
                 }),
                 ..Default::default()
             });
@@ -72,25 +77,28 @@ fn setup(mut commands: Commands, mut polyline_materials: ResMut<Assets<PolylineM
 
     // camera
     commands
-        .spawn_bundle(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(0.0, 0.0, -700.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..PerspectiveCameraBundle::new_3d()
-        })
+        .spawn_bundle(PerspectiveCameraBundle::new_3d())
         .insert(Rotates);
 }
 
 /// this component indicates what entities should rotate
+#[derive(Component)]
 struct Rotates;
 
 fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Rotates>>) {
     for mut transform in query.iter_mut() {
-        *transform = Transform::from_rotation(Quat::from_rotation_y(
-            (4.0 * std::f32::consts::PI / 20.0) * time.delta_seconds(),
-        )) * *transform;
+        let t = time.seconds_since_startup() as f32;
+        let r = 1100.0;
+        *transform = Transform::from_xyz(
+            r * f32::cos(t * 0.1),
+            (t * 0.1).sin() * 2000.0,
+            r * f32::sin(t * 0.1),
+        )
+        .looking_at(Vec3::ZERO, Vec3::Y);
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Component)]
 struct Body {
     mass: f32,
     acceleration: Vec3,
@@ -101,7 +109,6 @@ struct Body {
 #[derive(Debug)]
 struct Simulation {
     pub accumulator: f32,
-    pub seconds_since_startup: f64,
     pub is_paused: bool,
     pub scale: f32,
     pub timestep: f32,
@@ -110,7 +117,6 @@ struct Simulation {
 impl Default for Simulation {
     fn default() -> Simulation {
         Simulation {
-            seconds_since_startup: 0.0,
             accumulator: 0.0,
             is_paused: false,
             scale: 5e4,
@@ -134,6 +140,8 @@ impl Simulation {
         None
     }
 }
+#[derive(Component, Clone, Default, Debug)]
+struct Trail(ConstGenericRingBuffer<Vec3, TRAIL_LENGTH>);
 
 const G: f32 = 6.674_30E-11;
 const EPSILON: f32 = 1.;
@@ -141,12 +149,8 @@ const EPSILON: f32 = 1.;
 fn nbody_system(
     time: Res<Time>,
     mut simulation: ResMut<Simulation>,
-    mut query: Query<(
-        Entity,
-        &mut Body,
-        &mut ConstGenericRingBuffer<Vec3, TRAIL_LENGTH>,
-        &mut Polyline,
-    )>,
+    mut polylines: ResMut<Assets<Polyline>>,
+    mut query: Query<(Entity, &mut Body, &mut Trail, &Handle<Polyline>)>,
 ) {
     let mut bodies = query.iter_mut().collect::<Vec<_>>();
     // dbg!(&bodies);
@@ -191,19 +195,19 @@ fn nbody_system(
     }
 
     // Update Trails
-    bodies
+    query
         .iter_mut()
-        .for_each(|(_entity, body, trail, polyline)| {
-            if let Some(position) = trail.back() {
+        .for_each(|(_entity, body, mut trail, polyline)| {
+            if let Some(position) = trail.0.back() {
                 if (*position - body.position).length_squared()
                     > MINIMUM_LINE_SEGMENT_LENGTH_SQUARED
                 {
-                    trail.push(body.position);
-                    polyline.vertices = trail.to_vec();
+                    trail.0.push(body.position);
+                    polylines.get_mut(polyline).unwrap().vertices = trail.0.to_vec();
                 }
             } else {
-                trail.push(body.position);
-                polyline.vertices = trail.to_vec();
+                trail.0.push(body.position);
+                polylines.get_mut(polyline).unwrap().vertices = trail.0.to_vec();
             }
         });
 }

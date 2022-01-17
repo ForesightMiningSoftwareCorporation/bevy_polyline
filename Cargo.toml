@@ -1,27 +1,20 @@
 [package]
+edition = "2021"
 name = "bevy_polyline"
 version = "0.1.0"
-edition = "2018"
 
-[[example]]
-name = "linestrip"
-path = "examples/linestrip.rs"
-
-[[example]]
-name = "nbody"
-path = "examples/nbody.rs"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-bevy = { git = "https://github.com/bevyengine/bevy.git", branch = "main" }
+bitflags = "1.2"
+
+[dependencies.bevy]
+branch = "main"
+git = "https://github.com/bevyengine/bevy.git"
+
+[dependencies.naga]
+features = ["glsl-in", "spv-out", "wgsl-out"]
+version = "*"
 
 [dev-dependencies]
 lazy_static = "1.4.0"
-rand = "0.8.3"
-ringbuffer = "0.7.1"
-
-[patch.crates-io]
-# bevy = { path = "../bevy" }
-# wgpu = { path = "../wgpu-rs/" }
-# wgpu-types = { path = "../wgpu/wgpu-types" }
-# wgpu-core = { path = "../wgpu/wgpu-core" }
+rand = "0.8.4"
+ringbuffer = "0.8.2"
