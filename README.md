@@ -7,8 +7,6 @@
 
 Bevy Polyline is a plugin for [Bevy Engine](https://bevyengine.org/) that adds instanced rendering of `Polyline`s. The plugin comes courtesy of Foresight Mining Software Corporation who sponsor its creation and maintenance.
 
-Here's quick demo:
-
 ![nbody demo](nbody.gif)
 
 ## Implementation
@@ -85,4 +83,4 @@ If you want some help using this plugin, you can ask in the Bevy Discord at http
 ## Sponsors
 The creation and maintenance of Bevy Polyline is sponsored by Foresight Mining Software Corporation.
 
-<img src="https://avatars.githubusercontent.com/u/83515353" alt="Foresight Mining Software Corporation" width="240">
+<img src="fse.png" alt="Foresight Mining Software Corporation" width="480">

@@ -2,13 +2,23 @@
 edition = "2021"
 name = "bevy_polyline"
 version = "0.1.0"
+description = "Polyline Rendering for Bevy"
+license = "MIT"
+repository = "https://github.com/ForesightMiningSoftwareCorporation/bevy_polyline"
+homepage = "https://github.com/ForesightMiningSoftwareCorporation/bevy_polyline"
+documentation = "docs.rs/bevy_polyline"
+readme = "README.md"
+keywords = ["bevy", "gamedev", "polyline", "graphics"]
+categories = ["rendering", "game-development"]
+authors = [
+    "Foresight Mining Software Corporation",
+    "Jonas Matser",
+    "Aevyrie Roessler",
+]
 
 [dependencies]
-bitflags = "1.2"
-
-[dependencies.bevy]
-branch = "main"
-git = "https://github.com/bevyengine/bevy.git"
+bitflags = "1.3"
+bevy = "0.6"
 
 [dependencies.naga]
 features = ["glsl-in", "spv-out", "wgsl-out"]

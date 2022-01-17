@@ -67,8 +67,13 @@ fn setup(
                     vertices: Vec::with_capacity(TRAIL_LENGTH),
                 }),
                 material: polyline_materials.add(PolylineMaterial {
-                    width: size / 10000.0,
-                    color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, rng.gen_range(0.4..0.7)),
+                    width: size,
+                    color: Color::hsla(
+                        rng.gen_range(0.0..360.0),
+                        1.0,
+                        rng.gen_range(0.4..0.7),
+                        0.99,
+                    ),
                     perspective: true,
                     ..Default::default()
                 }),
