@@ -20,14 +20,14 @@ impl Plugin for PolylinePlugin {
         shaders.set_untracked(
             FRAG_SHADER_HANDLE,
             Shader::from_glsl(
-                include_str!("render/polyline.frag"),
+                include_str!("shaders/polyline.frag"),
                 naga::ShaderStage::Fragment,
             ),
         );
         shaders.set_untracked(
             VERT_SHADER_HANDLE,
             Shader::from_glsl(
-                include_str!("render/polyline.vert"),
+                include_str!("shaders/polyline.vert"),
                 naga::ShaderStage::Vertex,
             ),
         );
