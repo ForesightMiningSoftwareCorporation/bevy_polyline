@@ -85,4 +85,4 @@ If you want some help using this plugin, you can ask in the Bevy Discord at http
 ## Sponsors
 The creation and maintenance of Bevy Polyline is sponsored by Foresight Mining Software Corporation.
 
-<img src="fse.png" alt="Foresight Mining Software Corporation" width="240">
+<img src="https://avatars.githubusercontent.com/u/83515353" alt="Foresight Mining Software Corporation" width="240">
