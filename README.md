@@ -31,26 +31,34 @@ app.add_plugin(PolylinePlugin);
 
 And then you can add some Polylines through PolylineBundle
 ```rust
-commands.spawn_bundle(PolylineBundle {
-    polyline: Polyline {
-        vertices: vec![
-            Vec3::new(-0.5, 0.0, -0.5),
-            Vec3::new(0.5, 0.0, -0.5),
-            Vec3::new(0.5, 1.0, -0.5),
-            Vec3::new(-0.5, 1.0, -0.5),
-            Vec3::new(-0.5, 1.0, 0.5),
-            Vec3::new(0.5, 1.0, 0.5),
-            Vec3::new(0.5, 0.0, 0.5),
-            Vec3::new(-0.5, 0.0, 0.5),
-        ],
-    },
-    material: polyline_materials.add(PolylineMaterial {
-        width: 5.0,
-        color: Color::RED,
-        perspective: false,
-    }),
-    ..Default::default()
-});
+fn my_system(
+    mut commands: Commands,
+    mut polylines: ResMut<Assets<Polyline>>,
+    mut polyline_materials: ResMut<Assets<PolylineMaterial>>,
+) {
+    commands.spawn_bundle(PolylineBundle {
+        polyline: polylines.add(Polyline {
+            vertices: vec![
+                Vec3::new(-0.5, -0.5, -0.5),
+                Vec3::new(0.5, -0.5, -0.5),
+                Vec3::new(0.5, 0.5, -0.5),
+                Vec3::new(-0.5, 0.5, -0.5),
+                Vec3::new(-0.5, 0.5, 0.5),
+                Vec3::new(0.5, 0.5, 0.5),
+                Vec3::new(0.5, -0.5, 0.5),
+                Vec3::new(-0.5, -0.5, 0.5),
+            ],
+            ..Default::default()
+        }),
+        material: polyline_materials.add(PolylineMaterial {
+            width: 3.0,
+            color: Color::RED,
+            perspective: false,
+            ..Default::default()
+        }),
+        ..Default::default()
+    });
+}
 ```
 
 ### Transform
@@ -79,6 +87,9 @@ We intend to track the `main` branch of Bevy. PRs supporting this are welcome!
 
 ## Community Support
 If you want some help using this plugin, you can ask in the Bevy Discord at https://discord.gg/bevy.
+
+## Special Thanks
+Credit goes to [mtsr](https://github.com/mtsr) for the initial implementation of this plugin.
 
 ## Sponsors
 The creation and maintenance of Bevy Polyline is sponsored by Foresight Mining Software Corporation.
