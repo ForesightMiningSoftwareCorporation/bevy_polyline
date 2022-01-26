@@ -48,11 +48,24 @@ void main() {
     vec2 xBasis = normalize(screen1 - screen0);
     vec2 yBasis = vec2(-xBasis.y, xBasis.x);
 
-    float nudge = line_width * (clip.w * 0.005)/(far - near);
+    //screen to world -> width of line in world space -> add 0.5 of this to z -> transform to screen
+    //and use this depth
+
+    //float nudge = line_width * (clip.w * 0.005)/(far - near);
+    //vec4 width = line_width * clip.w;
+    // float ndc_line_x = line_width/width;
+    // float ndc_line_y = line_width/height;
+
+    // vec3 world_x = (inverse(inverse_view) * projection * inverse(Model) * vec4(ndc_line_x, 0.0, clip.z, 0.0)).xyz;
+    // vec3 world_y = (inverse(inverse_view) * projection * inverse(Model) * vec4(0.0, ndc_line_y, clip.z, 0.0)).xyz;
+
+    // vec4 z_world = vec4(cross(world_x, world_y), 0);
+    // float z_ndc = (ViewProj * Model * z_world).z;
+    //float nudge = sqrt(abs(clip.z - z_ndc)) * 0.5;
+
     #ifdef POLYLINE_PERSPECTIVE
         vec4 color = color;
         float line_width = line_width / clip.w;
-        nudge = nudge / clip.w;
         // Line thinness fade from https://acegikmo.com/shapes/docs/#anti-aliasing
         if (line_width < 1.0) {
             color.a *= line_width;
@@ -65,7 +78,7 @@ void main() {
     vec2 pt = mix(pt0, pt1, position.z);
     
     // Nudge the line towards the camera (depth) to emulate thickness and fix z-fighting.
-    float depth = clip.z + nudge;
+    float depth = clip.z;// + nudge;
 
     gl_Position = vec4(clip.w * ((2.0 * pt) / resolution - 1.0), depth, clip.w);
     Vertex_Color = color;
