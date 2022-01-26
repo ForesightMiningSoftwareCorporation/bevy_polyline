@@ -91,7 +91,18 @@ If you want some help using this plugin, you can ask in the Bevy Discord at http
 ## Special Thanks
 Credit goes to [mtsr](https://github.com/mtsr) for the initial implementation of this plugin.
 
+# License
+
+bevy_transform_gizmo is free and open source! All code in this repository is dual-licensed under either:
+
+* MIT License (LICENSE-MIT or http://opensource.org/licenses/MIT)
+* Apache License, Version 2.0 (LICENSE-APACHE or http://www.apache.org/licenses/LICENSE-2.0)
+
+at your option. This means you can select the license you prefer! This dual-licensing approach is the de-facto standard in the Rust ecosystem and there are very good reasons to include both.
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
+
 ## Sponsors
 The creation and maintenance of Bevy Polyline is sponsored by Foresight Mining Software Corporation.
 
-<img src="fse.png" alt="Foresight Mining Software Corporation" width="480">
+<img src="https://user-images.githubusercontent.com/2632925/151242316-db3455d1-4934-4374-8369-1818daf512dd.png" alt="Foresight Mining Software Corporation" width="480">
