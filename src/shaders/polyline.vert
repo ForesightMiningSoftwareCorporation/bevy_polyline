@@ -39,7 +39,6 @@ void main() {
     // algorithm based on https://wwwtyro.net/2019/11/18/instanced-lines.html
     vec4 clip0 = ViewProj * Model * vec4(I_Point0, 1);
     vec4 clip1 = ViewProj * Model * vec4(I_Point1, 1);
-    
     vec4 clip = mix(clip0, clip1, position.z);
 
     vec2 resolution = vec2(width, height);
@@ -49,9 +48,11 @@ void main() {
     vec2 xBasis = normalize(screen1 - screen0);
     vec2 yBasis = vec2(-xBasis.y, xBasis.x);
 
+    float nudge = line_width * (clip.w * 0.005)/(far - near);
     #ifdef POLYLINE_PERSPECTIVE
         vec4 color = color;
         float line_width = line_width / clip.w;
+        nudge = nudge / clip.w;
         // Line thinness fade from https://acegikmo.com/shapes/docs/#anti-aliasing
         if (line_width < 1.0) {
             color.a *= line_width;
@@ -62,8 +63,9 @@ void main() {
     vec2 pt0 = screen0 + line_width * (position.x * xBasis + position.y * yBasis);
     vec2 pt1 = screen1 + line_width * (position.x * xBasis + position.y * yBasis);
     vec2 pt = mix(pt0, pt1, position.z);
-
-    float depth = clip.z + line_width * 0.0001;
+    
+    // Nudge the line towards the camera (depth) to emulate thickness and fix z-fighting.
+    float depth = clip.z + nudge;
 
     gl_Position = vec4(clip.w * ((2.0 * pt) / resolution - 1.0), depth, clip.w);
     Vertex_Color = color;
