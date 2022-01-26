@@ -93,7 +93,7 @@ Credit goes to [mtsr](https://github.com/mtsr) for the initial implementation of
 
 # License
 
-bevy_transform_gizmo is free and open source! All code in this repository is dual-licensed under either:
+bevy_polyline is free and open source! All code in this repository is dual-licensed under either:
 
 * MIT License (LICENSE-MIT or http://opensource.org/licenses/MIT)
 * Apache License, Version 2.0 (LICENSE-APACHE or http://www.apache.org/licenses/LICENSE-2.0)
