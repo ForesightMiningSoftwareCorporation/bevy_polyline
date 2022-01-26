@@ -16,7 +16,7 @@ Bevy Polyline closely mimics the way `Mesh`es are rendered in Bevy. It works int
 ## Examples
 There are two examples, linestrip demonstrates how to make a very basic static Polyline. nbody (shown in the above demo) demonstrates how to do updateable `Polyline`s, by changing the vertices of a `Polyline`.
 
-## Usage
+# Usage
 Usage of Bevy Polyline is quite simple. First add it to your `Cargo.toml`:
 
 ```toml
@@ -61,34 +61,34 @@ fn my_system(
 }
 ```
 
-### Transform
+## Transform
 `Polyline`s respect positioning through `GlobalTransform`, so you can position them directly, or through the use of a `Transform` hierarchy.
 
-### PolylineMaterial
+## PolylineMaterial
 Currently the main way of customizing a `Polyline` is by changing the `PolylineMaterial`, which, as can be seen above, has fields for `width`, `color` and `perspective`. `width` directly correlates to screen pixels in non-perspective mode. In `perspective` mode `width` gets divided by the w component of the homogeneous coordinate, meaning it corresponds to screen pixels at the near plane and becomes progressively smaller further away.
 
-### Shaders
+## Shaders
 For more significant customization, you have to make a custom shader, although it's likely we'll add more shaders in the future. The current version only implements line strips (i.e. `PolyLine`s rendered as connected line segments) with no caps.
 
 Due to the nature of its instanced rendering, Bevy Polyline comes with fairly specific shaders. You can still replace these with custom ones, but you will have to keep a good chunk of the shader in tact if you want to use Bevy Polyline's way of creating the line triangles.
 
-### Aliasing/shimmering
+## Aliasing/shimmering
 Bevy Polyline does some work to reduce aliasing, by implementing the line thinness fade from https://acegikmo.com/shapes/docs/#anti-aliasing. But if your line segments are very short, you will still see shimmering, caused by triangles < 1 pixel in size. This can be reduced by only adding segments of a minimum length.
 
-### Performance
+## Performance
 Due to instancing, Bevy Polyline only makes one drawcall per `PolyLine`, one for the line segments ~~and one for the miter joins~~ (not currently enabled). We've tested the `nbody` demo at some 500 lines with 4096 segments being updated every frame (in addition to a 4th order Yoshida integrator for the nbody simulation) running at 60fps. There is still some room for performance optimization, particularly reducing to one drawcall per `Polyline` (depending on join and cap types) and more efficient updates of the instance buffer for updated lines.
 
-## Bevy Version Support
+# Bevy Version Support
 We intend to track the `main` branch of Bevy. PRs supporting this are welcome!
 
 |bevy|bevy_polyline|
 |---|---|
 |0.6|0.1|
 
-## Community Support
+# Community Support
 If you want some help using this plugin, you can ask in the Bevy Discord at https://discord.gg/bevy.
 
-## Special Thanks
+# Special Thanks
 Credit goes to [mtsr](https://github.com/mtsr) for the initial implementation of this plugin.
 
 # License
@@ -102,7 +102,7 @@ at your option. This means you can select the license you prefer! This dual-lice
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
 
-## Sponsors
+# Sponsors
 The creation and maintenance of Bevy Polyline is sponsored by Foresight Mining Software Corporation.
 
 <img src="https://user-images.githubusercontent.com/2632925/151242316-db3455d1-4934-4374-8369-1818daf512dd.png" alt="Foresight Mining Software Corporation" width="480">
