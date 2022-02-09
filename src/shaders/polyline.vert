@@ -7,6 +7,7 @@ layout(location = 0) out vec4 Vertex_Color;
 
 layout(set = 0, binding = 0) uniform View {
     mat4 ViewProj;
+    mat4 view;
     mat4 inverse_view;
     mat4 projection;
     vec3 world_position;

@@ -4,6 +4,7 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::Vec3A,
     prelude::*,
+    window::PresentMode,
 };
 use bevy_polyline::{Polyline, PolylineBundle, PolylineMaterial, PolylinePlugin};
 
@@ -18,7 +19,7 @@ const MINIMUM_ANGLE: f32 = 1.48341872; // == acos(5 degrees)
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
-            vsync: false,
+            present_mode: PresentMode::Immediate,
             ..Default::default()
         })
         .insert_resource(ClearColor(Color::BLACK))
@@ -29,9 +30,9 @@ fn main() {
         })
         .add_plugins(DefaultPlugins)
         .add_plugin(PolylinePlugin)
-        .add_startup_system(setup.system())
-        .add_system(nbody_system.system())
-        .add_system(rotator_system.system())
+        .add_startup_system(setup)
+        .add_system(nbody_system)
+        .add_system(rotator_system)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
         .run();
