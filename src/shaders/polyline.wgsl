@@ -29,77 +29,67 @@ struct PolylineMaterial {
 [[group(2), binding(0)]]
 var<uniform> material: PolylineMaterial;
 
-struct Instance {
-    [[location(0)]] point0: vec3<f32>;
-    [[location(1)]] point1: vec3<f32>;
-};
-
 struct Vertex {
-    [[location(2)]] position: vec3<f32>;
-    [[location(3)]] normal: vec3<f32>;
-    [[location(4)]] uv: vec2<f32>;
-#ifdef VERTEX_TANGENTS
-    [[location(5)]] tangent: vec4<f32>;
-#endif
+    [[location(0)]] I_Point0_: vec3<f32>;
+    [[location(1)]] I_Point1_: vec3<f32>;
+    [[builtin(vertex_index)]] index: u32;
 };
 
 struct VertexOutput {
     [[builtin(position)]] clip_position: vec4<f32>;
-    [[location(0)]] world_position: vec4<f32>;
-    [[location(1)]] world_normal: vec3<f32>;
-    [[location(2)]] uv: vec2<f32>;
-#ifdef VERTEX_TANGENTS
-    [[location(3)]] world_tangent: vec4<f32>;
-#endif
+    [[location(0)]] color: vec4<f32>;
 };
 
+let positions: array<vec3<f32>, 6u> = array<vec3<f32>, 6u>(
+    vec3<f32>(0.0, -0.5, 0.0),
+    vec3<f32>(0.0, -0.5, 1.0),
+    vec3<f32>(0.0, 0.5, 1.0),
+    vec3<f32>(0.0, -0.5, 0.0),
+    vec3<f32>(0.0, 0.5, 1.0),
+    vec3<f32>(0.0, 0.5, 0.0)
+);
+
 [[stage(vertex)]]
-fn vertex(instance: Instance, vertex: Vertex) -> VertexOutput {
-    // calculate world position of points
-    let point0 = polyline.model * vec4<f32>(instance.point0, 1.0);
-    let point1 = polyline.model * vec4<f32>(instance.point1, 1.0);
+// fn vertex([[builtin(vertex_index)]] vertex_index: u32, vertex: Vertex) -> VertexOutput {
+fn vertex(vertex: Vertex) -> VertexOutput {
+    var positions = positions;
+    let position = positions[vertex.index];
 
-    // find position between points for this vertex
-    let position = mix(point0, point1, vertex.position.y);
+    // algorithm based on https://wwwtyro.net/2019/11/18/instanced-lines.html
+    let clip0 = view.view_proj * polyline.model * vec4<f32>(vertex.I_Point0_, 1.0);
+    let clip1 = view.view_proj * polyline.model * vec4<f32>(vertex.I_Point1_, 1.0);
+    let clip = mix(clip0, clip1, position.z);
 
-    // calculate polyline direction
-    let direction = (point1 - point0).xyz;
-    let norm = length(direction);
-    // up is normalized direction
-    let up = direction / norm;
+    let resolution = vec2<f32>(view.width, view.height);
+    let screen0 = resolution * (0.5 * clip0.xy / clip0.w + 0.5);
+    let screen1 = resolution * (0.5 * clip1.xy / clip1.w + 0.5);
 
-    // use the view direction for the billboard matrix
-    let view_direction = normalize(position.xyz - view.world_position.xyz);
-    let right = normalize(cross(view_direction, up));
-    let forward = cross(up, right);
+    let xBasis = normalize(screen1 - screen0);
+    let yBasis = vec2<f32>(-xBasis.y, xBasis.x);
 
-    // optionally adjust width for perspective
-    var width = material.width;
-#ifndef POLYLINEPBRMATERIAL_PERSPECTIVE
-    // TODO get right of / 1.2 which is a workaround for a bug.
-    width = width / view.height * (view.view_proj * position).w / 1.2;
-#endif
+    var line_width = material.width;
+    var color = material.color;
 
-    // construct the billboard matrix from the 3 directions
-    let billboard_matrix = mat3x3<f32>(right * width, direction, forward * width);
+    #ifdef POLYLINE_PERSPECTIVE
+         line_width = line_width / clip.w;
+        // Line thinness fade from https://acegikmo.com/shapes/docs/#anti-aliasing
+        if (line_width < 1.0) {
+            color.a = color.a * line_width;
+            line_width = 1.0;
+        }
+    #endif
 
-    // world position is vertex position offset by point position
-    let world_position = billboard_matrix * vertex.position + point0.xyz;
-    // Then do normal projection for clip position
-    let clip_position = view.view_proj * vec4<f32>(world_position, 1.0);
+    let pt0 = screen0 + line_width * (position.x * xBasis + position.y * yBasis);
+    let pt1 = screen1 + line_width * (position.x * xBasis + position.y * yBasis);
+    let pt = mix(pt0, pt1, position.z);
 
-    // awkward syntax to get 3x3 part from 4x4 model matrix
-    let world_normal = mat3x3<f32>(polyline.model[0].xyz, polyline.model[1].xyz, polyline.model[2].xyz) * mat3x3<f32>(billboard_matrix[0].xyz, billboard_matrix[1].xyz, billboard_matrix[2].xyz) * vertex.normal;
+    let depth = clip.z;
 
-    let uv = vertex.uv;
-
-    return VertexOutput(clip_position, vec4<f32>(world_position.xyz, 1.0), world_normal, uv);
+    return VertexOutput(vec4<f32>(clip.w * ((2.0 * pt) / resolution - 1.0), depth, clip.w), color);
 };
 
 struct FragmentInput {
-    [[location(0)]] world_position: vec4<f32>;
-    [[location(1)]] world_normal: vec3<f32>;
-    [[location(2)]] uv: vec2<f32>;
+    [[location(0)]] color: vec4<f32>;
 };
 
 struct FragmentOutput {
@@ -108,5 +98,5 @@ struct FragmentOutput {
 
 [[stage(fragment)]]
 fn fragment(in: FragmentInput) -> FragmentOutput {
-    return FragmentOutput(vec4<f32>(1.0, 0.0, 0.0, 1.0));
+    return FragmentOutput(in.color);
 };

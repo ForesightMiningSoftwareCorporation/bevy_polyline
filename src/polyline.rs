@@ -1,4 +1,4 @@
-use crate::SHADER_HANDLE;
+use crate::{MESH_SHADER_HANDLE, SHADER_HANDLE};
 use bevy::{
     core::cast_slice,
     ecs::system::{
@@ -273,13 +273,21 @@ impl SpecializedPipeline for PolylinePipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: SHADER_HANDLE.typed::<Shader>(),
+                shader: if key.contains(PolylinePipelineKey::MESH) {
+                    MESH_SHADER_HANDLE.typed::<Shader>()
+                } else {
+                    SHADER_HANDLE.typed::<Shader>()
+                },
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers,
             },
             fragment: Some(FragmentState {
-                shader: SHADER_HANDLE.typed::<Shader>(),
+                shader: if key.contains(PolylinePipelineKey::MESH) {
+                    MESH_SHADER_HANDLE.typed::<Shader>()
+                } else {
+                    SHADER_HANDLE.typed::<Shader>()
+                },
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![ColorTargetState {

@@ -10,6 +10,9 @@ pub mod polyline;
 pub const SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 12823766040132746065);
 
+pub const MESH_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 11173244208177162208);
+
 pub struct PolylinePlugin;
 
 impl Plugin for PolylinePlugin {
@@ -18,6 +21,10 @@ impl Plugin for PolylinePlugin {
         shaders.set_untracked(
             SHADER_HANDLE,
             Shader::from_wgsl(include_str!("shaders/polyline.wgsl")),
+        );
+        shaders.set_untracked(
+            MESH_SHADER_HANDLE,
+            Shader::from_wgsl(include_str!("shaders/mesh_polyline.wgsl")),
         );
         app.add_plugin(PolylineBasePlugin)
             .add_plugin(PolylineRenderPlugin)
