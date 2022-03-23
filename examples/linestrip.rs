@@ -17,29 +17,32 @@ fn setup(
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
     mut polyline_materials: ResMut<Assets<PolylineMaterial>>,
     mut polylines: ResMut<Assets<Polyline>>,
+    asset_server: Res<AssetServer>,
 ) {
-    commands.spawn_bundle(PolylineBundle {
-        polyline: polylines.add(Polyline {
-            vertices: vec![
-                Vec3::new(-0.5, -0.5, -0.5),
-                Vec3::new(0.5, -0.5, -0.5),
-                Vec3::new(0.5, 0.5, -0.5),
-                Vec3::new(-0.5, 0.5, -0.5),
-                Vec3::new(-0.5, 0.5, 0.5),
-                Vec3::new(0.5, 0.5, 0.5),
-                Vec3::new(0.5, -0.5, 0.5),
-                Vec3::new(-0.5, -0.5, 0.5),
-            ],
+    commands
+        .spawn_bundle(PolylineBundle {
+            polyline: polylines.add(Polyline {
+                vertices: vec![
+                    Vec3::new(-0.5, -0.5, -0.5),
+                    Vec3::new(0.5, -0.5, -0.5),
+                    Vec3::new(0.5, 0.5, -0.5),
+                    Vec3::new(-0.5, 0.5, -0.5),
+                    Vec3::new(-0.5, 0.5, 0.5),
+                    Vec3::new(0.5, 0.5, 0.5),
+                    Vec3::new(0.5, -0.5, 0.5),
+                    Vec3::new(-0.5, -0.5, 0.5),
+                ],
+                ..Default::default()
+            }),
+            material: polyline_materials.add(PolylineMaterial {
+                width: 3.0,
+                color: Color::RED,
+                perspective: false,
+                ..Default::default()
+            }),
             ..Default::default()
-        }),
-        material: polyline_materials.add(PolylineMaterial {
-            width: 3.0,
-            color: Color::RED,
-            perspective: false,
-            ..Default::default()
-        }),
-        ..Default::default()
-    });
+        })
+        .insert(asset_server.load::<Mesh, _>("models/capped_half_cylinder.glb#Mesh0/Primitive0"));
 
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
