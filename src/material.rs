@@ -1,6 +1,6 @@
 use crate::{
     polyline::{
-        DrawPolyline, PolylinePipeline, PolylinePipelineKey, PolylineUniform,
+        DrawMeshPolyline, DrawPolyline, PolylinePipeline, PolylinePipelineKey, PolylineUniform,
         PolylineViewBindGroup, SetPolylineBindGroup,
     },
     SHADER_HANDLE,
@@ -161,6 +161,9 @@ impl Plugin for PolylineMaterialPlugin {
                 .add_render_command::<Transparent3d, DrawMaterial>()
                 .add_render_command::<Opaque3d, DrawMaterial>()
                 .add_render_command::<AlphaMask3d, DrawMaterial>()
+                .add_render_command::<Transparent3d, DrawMeshMaterial>()
+                .add_render_command::<Opaque3d, DrawMeshMaterial>()
+                .add_render_command::<AlphaMask3d, DrawMeshMaterial>()
                 .init_resource::<PolylineMaterialPipeline>()
                 .init_resource::<SpecializedPipelines<PolylineMaterialPipeline>>()
                 .add_system_to_stage(RenderStage::Queue, queue_material_polylines);
@@ -217,6 +220,14 @@ type DrawMaterial = (
     SetPolylineBindGroup<1>,
     SetMaterialBindGroup<2>,
     DrawPolyline,
+);
+
+type DrawMeshMaterial = (
+    SetItemPipeline,
+    SetPolylineViewBindGroup<0>,
+    SetPolylineBindGroup<1>,
+    SetMaterialBindGroup<2>,
+    DrawMeshPolyline,
 );
 
 pub struct SetPolylineViewBindGroup<const I: usize>;
@@ -277,7 +288,12 @@ pub fn queue_material_polylines(
     mut pipeline_cache: ResMut<RenderPipelineCache>,
     msaa: Res<Msaa>,
     render_materials: Res<RenderAssets<PolylineMaterial>>,
-    material_meshes: Query<(&Handle<PolylineMaterial>, &PolylineUniform)>,
+    material_meshes: Query<(
+        &Handle<PolylineMaterial>,
+        &PolylineUniform,
+        Option<&Handle<Mesh>>,
+    )>,
+
     mut views: Query<(
         &ExtractedView,
         &VisibleEntities,
@@ -293,13 +309,25 @@ pub fn queue_material_polylines(
             .read()
             .get_id::<DrawMaterial>()
             .unwrap();
+        let draw_opaque_mesh = opaque_draw_functions
+            .read()
+            .get_id::<DrawMeshMaterial>()
+            .unwrap();
         let draw_alpha_mask = alpha_mask_draw_functions
             .read()
             .get_id::<DrawMaterial>()
             .unwrap();
+        let draw_alpha_mask_mesh = alpha_mask_draw_functions
+            .read()
+            .get_id::<DrawMeshMaterial>()
+            .unwrap();
         let draw_transparent = transparent_draw_functions
             .read()
             .get_id::<DrawMaterial>()
+            .unwrap();
+        let draw_transparent_mesh = transparent_draw_functions
+            .read()
+            .get_id::<DrawMeshMaterial>()
             .unwrap();
 
         let inverse_view_matrix = view.transform.compute_matrix().inverse();
@@ -307,13 +335,18 @@ pub fn queue_material_polylines(
         let mut polyline_key = PolylinePipelineKey::from_msaa_samples(msaa.samples);
 
         for visible_entity in &visible_entities.entities {
-            if let Ok((material_handle, polyline_uniform)) = material_meshes.get(*visible_entity) {
+            if let Ok((material_handle, polyline_uniform, maybe_mesh)) =
+                material_meshes.get(*visible_entity)
+            {
                 if let Some(material) = render_materials.get(material_handle) {
                     if material.alpha_mode == AlphaMode::Blend {
                         polyline_key |= PolylinePipelineKey::TRANSPARENT_MAIN_PASS
                     }
                     if material.perspective {
                         polyline_key |= PolylinePipelineKey::PERSPECTIVE
+                    }
+                    if maybe_mesh.is_some() {
+                        polyline_key |= PolylinePipelineKey::MESH
                     }
                     let pipeline_id =
                         pipelines.specialize(&mut pipeline_cache, &material_pipeline, polyline_key);
@@ -325,7 +358,11 @@ pub fn queue_material_polylines(
                         AlphaMode::Opaque => {
                             opaque_phase.add(Opaque3d {
                                 entity: *visible_entity,
-                                draw_function: draw_opaque,
+                                draw_function: if maybe_mesh.is_none() {
+                                    draw_opaque
+                                } else {
+                                    draw_opaque_mesh
+                                },
                                 pipeline: pipeline_id,
                                 // NOTE: Front-to-back ordering for opaque with ascending sort means near should have the
                                 // lowest sort key and getting further away should increase. As we have
@@ -337,7 +374,11 @@ pub fn queue_material_polylines(
                         AlphaMode::Mask(_) => {
                             alpha_mask_phase.add(AlphaMask3d {
                                 entity: *visible_entity,
-                                draw_function: draw_alpha_mask,
+                                draw_function: if maybe_mesh.is_none() {
+                                    draw_alpha_mask
+                                } else {
+                                    draw_alpha_mask_mesh
+                                },
                                 pipeline: pipeline_id,
                                 // NOTE: Front-to-back ordering for alpha mask with ascending sort means near should have the
                                 // lowest sort key and getting further away should increase. As we have
@@ -349,7 +390,11 @@ pub fn queue_material_polylines(
                         AlphaMode::Blend => {
                             transparent_phase.add(Transparent3d {
                                 entity: *visible_entity,
-                                draw_function: draw_transparent,
+                                draw_function: if maybe_mesh.is_none() {
+                                    draw_transparent
+                                } else {
+                                    draw_transparent_mesh
+                                },
                                 pipeline: pipeline_id,
                                 // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the
                                 // lowest sort key and getting closer should increase. As we have

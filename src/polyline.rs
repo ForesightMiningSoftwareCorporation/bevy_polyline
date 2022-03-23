@@ -9,6 +9,7 @@ use bevy::{
     prelude::*,
     reflect::TypeUuid,
     render::{
+        mesh::GpuBufferInfo,
         render_asset::{RenderAsset, RenderAssetPlugin, RenderAssets},
         render_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
         render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
@@ -95,15 +96,27 @@ pub struct GpuPolyline {
 pub fn extract_polylines(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Query<(
-        Entity,
-        &ComputedVisibility,
-        &GlobalTransform,
-        &Handle<Polyline>,
+    mut queries: QuerySet<(
+        QueryState<
+            (
+                Entity,
+                &ComputedVisibility,
+                &GlobalTransform,
+                &Handle<Polyline>,
+            ),
+            Without<Handle<Mesh>>,
+        >,
+        QueryState<(
+            Entity,
+            &ComputedVisibility,
+            &GlobalTransform,
+            &Handle<Polyline>,
+            &Handle<Mesh>,
+        )>,
     )>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    for (entity, computed_visibility, transform, handle) in query.iter() {
+    for (entity, computed_visibility, transform, polyline_handle) in queries.q0().iter() {
         if !computed_visibility.is_visible {
             continue;
         }
@@ -111,7 +124,30 @@ pub fn extract_polylines(
         values.push((
             entity,
             (
-                handle.clone_weak(),
+                polyline_handle.clone_weak(),
+                PolylineUniform {
+                    transform,
+                    //inverse_transpose_model: transform.inverse().transpose(),
+                },
+            ),
+        ));
+    }
+    *previous_len = values.len();
+    commands.insert_or_spawn_batch(values);
+
+    let mut values = Vec::with_capacity(*previous_len);
+    for (entity, computed_visibility, transform, polyline_handle, mesh_handle) in
+        queries.q1().iter()
+    {
+        if !computed_visibility.is_visible {
+            continue;
+        }
+        let transform = transform.compute_matrix();
+        values.push((
+            entity,
+            (
+                polyline_handle.clone_weak(),
+                mesh_handle.clone_weak(),
                 PolylineUniform {
                     transform,
                     //inverse_transpose_model: transform.inverse().transpose(),
@@ -202,16 +238,45 @@ impl SpecializedPipeline for PolylinePipeline {
             depth_write_enabled = true;
         }
 
+        let mut buffers = vec![VertexBufferLayout {
+            array_stride: 12,
+            step_mode: VertexStepMode::Instance,
+            attributes: vertex_attributes,
+        }];
+
+        if key.contains(PolylinePipelineKey::MESH) {
+            buffers.push(VertexBufferLayout {
+                array_stride: 32,
+                step_mode: VertexStepMode::Vertex,
+                attributes: vec![
+                    // Position (GOTCHA! Vertex_Position isn't first in the buffer due to how Mesh sorts attributes (alphabetically))
+                    VertexAttribute {
+                        format: VertexFormat::Float32x3,
+                        offset: 0,
+                        shader_location: 2,
+                    },
+                    // Normal
+                    VertexAttribute {
+                        format: VertexFormat::Float32x3,
+                        offset: 12,
+                        shader_location: 3,
+                    },
+                    // Uv
+                    VertexAttribute {
+                        format: VertexFormat::Float32x2,
+                        offset: 24,
+                        shader_location: 4,
+                    },
+                ],
+            })
+        }
+
         RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: SHADER_HANDLE.typed::<Shader>(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
-                buffers: vec![VertexBufferLayout {
-                    array_stride: 12,
-                    step_mode: VertexStepMode::Instance,
-                    attributes: vertex_attributes,
-                }],
+                buffers,
             },
             fragment: Some(FragmentState {
                 shader: SHADER_HANDLE.typed::<Shader>(),
@@ -267,6 +332,7 @@ bitflags::bitflags! {
         const NONE = 0;
         const PERSPECTIVE = (1 << 0);
         const TRANSPARENT_MAIN_PASS = (1 << 1);
+        const MESH = (1 << 2);
         const MSAA_RESERVED_BITS = PolylinePipelineKey::MSAA_MASK_BITS << PolylinePipelineKey::MSAA_SHIFT_BITS;
     }
 }
@@ -419,7 +485,10 @@ impl<const I: usize> EntityRenderCommand for SetPolylineBindGroup<I> {
 
 pub struct DrawPolyline;
 impl EntityRenderCommand for DrawPolyline {
-    type Param = (SRes<RenderAssets<Polyline>>, SQuery<Read<Handle<Polyline>>>);
+    type Param = (
+        SRes<RenderAssets<Polyline>>,
+        SQuery<Read<Handle<Polyline>>, Without<Handle<Mesh>>>,
+    );
     #[inline]
     fn render<'w>(
         _view: Entity,
@@ -433,6 +502,51 @@ impl EntityRenderCommand for DrawPolyline {
             let num_instances = gpu_polyline.vertex_count.max(1) - 1;
             pass.draw(0..6, 0..num_instances);
             RenderCommandResult::Success
+        } else {
+            RenderCommandResult::Failure
+        }
+    }
+}
+
+pub struct DrawMeshPolyline;
+impl EntityRenderCommand for DrawMeshPolyline {
+    type Param = (
+        SRes<RenderAssets<Polyline>>,
+        SRes<RenderAssets<Mesh>>,
+        SQuery<(Read<Handle<Polyline>>, Read<Handle<Mesh>>)>,
+    );
+    #[inline]
+    fn render<'w>(
+        _view: Entity,
+        item: Entity,
+        (polylines, meshes, pl_query): SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        let (pl_handle, mesh_handle) = pl_query.get(item).unwrap();
+        if let Some(gpu_polyline) = polylines.into_inner().get(pl_handle) {
+            if let Some(gpu_mesh) = meshes.into_inner().get(mesh_handle) {
+                match &gpu_mesh.buffer_info {
+                    GpuBufferInfo::Indexed {
+                        buffer,
+                        index_format,
+                        count,
+                    } => {
+                        pass.set_vertex_buffer(1, gpu_mesh.vertex_buffer.slice(..));
+                        pass.set_index_buffer(buffer.slice(..), 0, *index_format);
+                        pass.set_vertex_buffer(0, gpu_polyline.vertex_buffer.slice(..));
+                        let num_instances = gpu_polyline.vertex_count.max(1) - 1;
+                        pass.draw_indexed(0..*count, 0, 0..num_instances);
+                    }
+                    GpuBufferInfo::NonIndexed { vertex_count } => {
+                        pass.set_vertex_buffer(1, gpu_mesh.vertex_buffer.slice(..));
+                        let num_instances = gpu_polyline.vertex_count.max(1) - 1;
+                        pass.draw(0..*vertex_count, 0..num_instances);
+                    }
+                }
+                RenderCommandResult::Success
+            } else {
+                RenderCommandResult::Failure
+            }
         } else {
             RenderCommandResult::Failure
         }
