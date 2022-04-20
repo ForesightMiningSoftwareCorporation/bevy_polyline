@@ -169,7 +169,7 @@ impl FromWorld for PolylinePipeline {
     }
 }
 
-impl SpecializedPipeline for PolylinePipeline {
+impl SpecializedRenderPipeline for PolylinePipeline {
     type Key = PolylinePipelineKey;
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let vertex_attributes = vec![
