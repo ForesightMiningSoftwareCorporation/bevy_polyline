@@ -1,11 +1,15 @@
 use bevy::{prelude::*, reflect::TypeUuid};
-pub use material::PolylineMaterial;
 use material::PolylineMaterialPlugin;
-pub use polyline::Polyline;
 use polyline::{PolylineBasePlugin, PolylineRenderPlugin};
 
 pub mod material;
 pub mod polyline;
+
+pub mod prelude {
+    pub use crate::material::PolylineMaterial;
+    pub use crate::polyline::{Polyline, PolylineBundle};
+    pub use crate::PolylinePlugin;
+}
 
 pub const FRAG_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 12823766040132746065);
@@ -35,16 +39,4 @@ impl Plugin for PolylinePlugin {
             .add_plugin(PolylineRenderPlugin)
             .add_plugin(PolylineMaterialPlugin);
     }
-}
-
-#[derive(Bundle, Default)]
-pub struct PolylineBundle {
-    pub polyline: Handle<Polyline>,
-    pub material: Handle<PolylineMaterial>,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
-    /// User indication of whether an entity is visible
-    pub visibility: Visibility,
-    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub computed_visibility: ComputedVisibility,
 }

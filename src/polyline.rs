@@ -1,4 +1,4 @@
-use crate::{FRAG_SHADER_HANDLE, VERT_SHADER_HANDLE};
+use crate::{material::PolylineMaterial, FRAG_SHADER_HANDLE, VERT_SHADER_HANDLE};
 use bevy::{
     core::cast_slice,
     ecs::system::{
@@ -39,6 +39,18 @@ impl Plugin for PolylineRenderPlugin {
             .add_system_to_stage(RenderStage::Queue, queue_polyline_bind_group)
             .add_system_to_stage(RenderStage::Queue, queue_polyline_view_bind_groups);
     }
+}
+
+#[derive(Bundle, Default)]
+pub struct PolylineBundle {
+    pub polyline: Handle<Polyline>,
+    pub material: Handle<PolylineMaterial>,
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+    /// User indication of whether an entity is visible
+    pub visibility: Visibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub computed_visibility: ComputedVisibility,
 }
 
 #[derive(Debug, Default, Component, Clone, TypeUuid)]

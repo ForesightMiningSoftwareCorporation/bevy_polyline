@@ -6,7 +6,7 @@ use bevy::{
     prelude::*,
     window::PresentMode,
 };
-use bevy_polyline::{Polyline, PolylineBundle, PolylineMaterial, PolylinePlugin};
+use bevy_polyline::prelude::*;
 
 use lazy_static::*;
 use rand::{prelude::*, Rng};

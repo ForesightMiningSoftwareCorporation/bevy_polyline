@@ -1,5 +1,5 @@
 use bevy::{pbr::PointLightBundle, prelude::*};
-use bevy_polyline::{Polyline, PolylineBundle, PolylineMaterial, PolylinePlugin};
+use bevy_polyline::prelude::*;
 
 fn main() {
     App::new()
