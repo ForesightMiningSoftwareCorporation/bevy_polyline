@@ -1,13 +1,13 @@
 use bevy::{pbr::PointLightBundle, prelude::*};
-use bevy_polyline::{Polyline, PolylineBundle, PolylineMaterial, PolylinePlugin};
+use bevy_polyline::prelude::*;
 
 fn main() {
     App::new()
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_plugin(PolylinePlugin)
-        .add_startup_system(setup.system())
-        .add_system(rotator_system.system())
+        .add_startup_system(setup)
+        .add_system(rotator_system)
         .run();
 }
 
@@ -33,7 +33,7 @@ fn setup(
             ..Default::default()
         }),
         material: polyline_materials.add(PolylineMaterial {
-            width: 3.0,
+            width: 2.0,
             color: Color::RED,
             perspective: false,
             ..Default::default()

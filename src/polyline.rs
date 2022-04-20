@@ -1,4 +1,4 @@
-use crate::{FRAG_SHADER_HANDLE, VERT_SHADER_HANDLE};
+use crate::{material::PolylineMaterial, SHADER_HANDLE};
 use bevy::{
     core::cast_slice,
     ecs::system::{
@@ -39,6 +39,18 @@ impl Plugin for PolylineRenderPlugin {
             .add_system_to_stage(RenderStage::Queue, queue_polyline_bind_group)
             .add_system_to_stage(RenderStage::Queue, queue_polyline_view_bind_groups);
     }
+}
+
+#[derive(Bundle, Default)]
+pub struct PolylineBundle {
+    pub polyline: Handle<Polyline>,
+    pub material: Handle<PolylineMaterial>,
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+    /// User indication of whether an entity is visible
+    pub visibility: Visibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub computed_visibility: ComputedVisibility,
 }
 
 #[derive(Debug, Default, Component, Clone, TypeUuid)]
@@ -169,7 +181,7 @@ impl FromWorld for PolylinePipeline {
     }
 }
 
-impl SpecializedPipeline for PolylinePipeline {
+impl SpecializedRenderPipeline for PolylinePipeline {
     type Key = PolylinePipelineKey;
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let vertex_attributes = vec![
@@ -204,8 +216,8 @@ impl SpecializedPipeline for PolylinePipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: VERT_SHADER_HANDLE.typed::<Shader>(),
-                entry_point: "main".into(),
+                shader: SHADER_HANDLE.typed::<Shader>(),
+                entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![VertexBufferLayout {
                     array_stride: 12,
@@ -214,9 +226,9 @@ impl SpecializedPipeline for PolylinePipeline {
                 }],
             },
             fragment: Some(FragmentState {
-                shader: FRAG_SHADER_HANDLE.typed::<Shader>(),
+                shader: SHADER_HANDLE.typed::<Shader>(),
                 shader_defs,
-                entry_point: "main".into(),
+                entry_point: "fragment".into(),
                 targets: vec![ColorTargetState {
                     format: TextureFormat::bevy_default(),
                     blend,
