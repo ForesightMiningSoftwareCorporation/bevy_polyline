@@ -4,7 +4,7 @@
 
 **High performance instanced polyline rendering for bevy**
             
-![nbody demo](nbody.gif)
+https://user-images.githubusercontent.com/2632925/164310870-f83530f8-d28c-4165-b8f6-b88e74ac02cb.mp4
     
 [![crates.io](https://img.shields.io/crates/v/bevy_polyline)](https://crates.io/crates/bevy_polyline)
 [![docs.rs](https://docs.rs/bevy_polyline/badge.svg)](https://docs.rs/bevy_polyline)
