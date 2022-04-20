@@ -1,4 +1,4 @@
-use crate::{material::PolylineMaterial, FRAG_SHADER_HANDLE, VERT_SHADER_HANDLE};
+use crate::{material::PolylineMaterial, SHADER_HANDLE};
 use bevy::{
     core::cast_slice,
     ecs::system::{
@@ -216,8 +216,8 @@ impl SpecializedRenderPipeline for PolylinePipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: VERT_SHADER_HANDLE.typed::<Shader>(),
-                entry_point: "main".into(),
+                shader: SHADER_HANDLE.typed::<Shader>(),
+                entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![VertexBufferLayout {
                     array_stride: 12,
@@ -226,9 +226,9 @@ impl SpecializedRenderPipeline for PolylinePipeline {
                 }],
             },
             fragment: Some(FragmentState {
-                shader: FRAG_SHADER_HANDLE.typed::<Shader>(),
+                shader: SHADER_HANDLE.typed::<Shader>(),
                 shader_defs,
-                entry_point: "main".into(),
+                entry_point: "fragment".into(),
                 targets: vec![ColorTargetState {
                     format: TextureFormat::bevy_default(),
                     blend,

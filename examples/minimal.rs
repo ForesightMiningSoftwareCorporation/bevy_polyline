@@ -20,9 +20,9 @@ fn setup(
             ..Default::default()
         }),
         material: polyline_materials.add(PolylineMaterial {
-            width: 3.0,
+            width: 10.0,
             color: Color::RED,
-            perspective: true,
+            perspective: false,
             ..Default::default()
         }),
         ..Default::default()

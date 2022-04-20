@@ -3,7 +3,7 @@ use crate::{
         DrawPolyline, PolylinePipeline, PolylinePipelineKey, PolylineUniform,
         PolylineViewBindGroup, SetPolylineBindGroup,
     },
-    FRAG_SHADER_HANDLE, VERT_SHADER_HANDLE,
+    SHADER_HANDLE,
 };
 use bevy::{
     core_pipeline::{AlphaMask3d, Opaque3d, Transparent3d},
@@ -45,11 +45,11 @@ impl Default for PolylineMaterial {
 
 impl PolylineMaterial {
     fn fragment_shader(_asset_server: &AssetServer) -> Handle<Shader> {
-        FRAG_SHADER_HANDLE.typed()
+        SHADER_HANDLE.typed()
     }
 
     fn vertex_shader(_asset_server: &AssetServer) -> Handle<Shader> {
-        VERT_SHADER_HANDLE.typed()
+        SHADER_HANDLE.typed()
     }
 
     pub fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout {
