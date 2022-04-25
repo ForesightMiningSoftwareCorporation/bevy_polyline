@@ -45,11 +45,16 @@ pub struct PolylineMaterial {
     /// and your wireframe is z-fighting (flickering on/off) with your main model.
     /// You would set this value to a negative number close to 0.0.
     pub depth_bias: f32,
-    /// Whether to reduce line width with perspective
+    /// Whether to reduce line width with perspective.
     ///
-    /// When `perspective` is `true`, `width` gets divided by the w component of
-    /// the homogeneous coordinate, meaning it corresponds to screen pixels at
-    /// the near plane and becomes progressively smaller further away.
+    /// When `perspective` is `true`, `width` corresponds to screen pixels at
+    /// the near plane and becomes progressively smaller further away. This is done
+    /// by dividing `width` by the w component of the homogeneous coordinate.
+    ///
+    /// If the width where to be lower than 1, the color of the line is faded. This
+    /// prevents flickering.
+    ///
+    /// Note that `depth_bias` **does not** interact with this in any way.
     pub perspective: bool,
 }
 
