@@ -29,7 +29,7 @@ Usage of Bevy Polyline is quite simple. First add it to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-bevy_polyline = "0.2"
+bevy_polyline = "0.3"
 ```
 
 You add it as a plugin to your app:

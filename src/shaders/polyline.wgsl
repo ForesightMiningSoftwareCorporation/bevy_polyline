@@ -23,6 +23,7 @@ var<uniform> polyline: Polyline;
 
 struct PolylineMaterial {
     color: vec4<f32>;
+    depth_bias: f32;
     width: f32;
 };
 
@@ -83,7 +84,12 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     let pt1 = screen1 + line_width * (position.x * xBasis + position.y * yBasis);
     let pt = mix(pt0, pt1, position.z);
 
-    let depth = clip.z;
+    var depth: f32 = clip.z;
+    if (material.depth_bias >= 0.0) {
+         depth = depth * (1.0 - material.depth_bias);
+    } else {
+         depth = depth * exp2(-material.depth_bias * 8.9);
+     }
 
     return VertexOutput(vec4<f32>(clip.w * ((2.0 * pt) / resolution - 1.0), depth, clip.w), color);
 };
