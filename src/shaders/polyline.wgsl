@@ -86,10 +86,18 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 
     var depth: f32 = clip.z;
     if (material.depth_bias >= 0.0) {
-         depth = depth * (1.0 - material.depth_bias);
+        depth = depth * (1.0 - material.depth_bias);
     } else {
-         depth = depth * exp2(-material.depth_bias * 8.9);
-     }
+        let epsilon = 4.88e-04;
+        // depth * (clip.w / depth)^-depth_bias. So that when -depth_bias is 1.0, this is equal to clip.w
+        // and when equal to 0.0, it is exactly equal to depth.
+        // the epsilon is here to prevent the depth from exceeding clip.w when -depth_bias = 1.0 
+        // clip.w represents the near plane in homogenous clip space in bevy, having a depth
+        // of this value means nothing can be in front of this
+        // The reason this uses an exponential function is that it makes it much easier for the 
+        // user to chose a value that is convinient for them
+        depth = depth * exp2(-material.depth_bias * log2(clip.w / depth - epsilon));
+    }
 
     return VertexOutput(vec4<f32>(clip.w * ((2.0 * pt) / resolution - 1.0), depth, clip.w), color);
 };
