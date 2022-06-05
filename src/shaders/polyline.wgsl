@@ -40,19 +40,17 @@ struct VertexOutput {
     [[location(0)]] color: vec4<f32>;
 };
 
-let positions: array<vec3<f32>, 6u> = array<vec3<f32>, 6u>(
-    vec3<f32>(0.0, -0.5, 0.0),
-    vec3<f32>(0.0, -0.5, 1.0),
-    vec3<f32>(0.0, 0.5, 1.0),
-    vec3<f32>(0.0, -0.5, 0.0),
-    vec3<f32>(0.0, 0.5, 1.0),
-    vec3<f32>(0.0, 0.5, 0.0)
-);
-
 [[stage(vertex)]]
 // fn vertex([[builtin(vertex_index)]] vertex_index: u32, vertex: Vertex) -> VertexOutput {
 fn vertex(vertex: Vertex) -> VertexOutput {
-    var positions = positions;
+    var positions: array<vec3<f32>, 6u> = array<vec3<f32>, 6u>(
+        vec3<f32>(0.0, -0.5, 0.0),
+        vec3<f32>(0.0, -0.5, 1.0),
+        vec3<f32>(0.0, 0.5, 1.0),
+        vec3<f32>(0.0, -0.5, 0.0),
+        vec3<f32>(0.0, 0.5, 1.0),
+        vec3<f32>(0.0, 0.5, 0.0)
+    );
     let position = positions[vertex.index];
 
     // algorithm based on https://wwwtyro.net/2019/11/18/instanced-lines.html
