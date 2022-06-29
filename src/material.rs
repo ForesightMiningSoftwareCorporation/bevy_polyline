@@ -28,8 +28,33 @@ use std::fmt::Debug;
 #[derive(Component, Debug, PartialEq, Clone, Copy, TypeUuid)]
 #[uuid = "69b87497-2ba0-4c38-ba82-f54bf1ffe873"]
 pub struct PolylineMaterial {
+    /// Width of the line.
+    ///
+    /// Corresponds to screen pixels when line is positioned nearest the
+    /// camera.
     pub width: f32,
     pub color: Color,
+    /// How closer to the camera than real geometry the line should be.
+    ///
+    /// Value between -1 and 1 (inclusive).
+    /// * 0 means that there is no change to the line position when rendering
+    /// * 1 means it is furthest away from camera as possible
+    /// * -1 means that it will always render in front of other things.
+    ///
+    /// This is typically useful if you are drawing wireframes on top of polygons
+    /// and your wireframe is z-fighting (flickering on/off) with your main model.
+    /// You would set this value to a negative number close to 0.0.
+    pub depth_bias: f32,
+    /// Whether to reduce line width with perspective.
+    ///
+    /// When `perspective` is `true`, `width` corresponds to screen pixels at
+    /// the near plane and becomes progressively smaller further away. This is done
+    /// by dividing `width` by the w component of the homogeneous coordinate.
+    ///
+    /// If the width where to be lower than 1, the color of the line is faded. This
+    /// prevents flickering.
+    ///
+    /// Note that `depth_bias` **does not** interact with this in any way.
     pub perspective: bool,
 }
 
@@ -38,6 +63,7 @@ impl Default for PolylineMaterial {
         Self {
             width: 10.0,
             color: Color::WHITE,
+            depth_bias: 0.0,
             perspective: false,
         }
     }
@@ -85,6 +111,7 @@ impl PolylineMaterial {
 #[derive(AsStd140, Component, Clone)]
 pub struct PolylineMaterialUniform {
     pub color: Vec4,
+    pub depth_bias: f32,
     pub width: f32,
 }
 
@@ -113,6 +140,7 @@ impl RenderAsset for PolylineMaterial {
     > {
         let value = PolylineMaterialUniform {
             width: material.width,
+            depth_bias: material.depth_bias,
             color: material.color.as_linear_rgba_f32().into(),
         };
         let value_std140 = value.as_std140();
