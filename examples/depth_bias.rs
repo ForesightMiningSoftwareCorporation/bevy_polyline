@@ -61,7 +61,7 @@ fn setup(
     mut polylines: ResMut<Assets<Polyline>>,
     mut materials: ResMut<Assets<PolylineMaterial>>,
 ) {
-    cmds.spawn_bundle(PerspectiveCameraBundle::new_3d())
+    cmds.spawn_bundle(Camera3dBundle::default())
         .insert(Transform::from_xyz(100.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y));
     cmds.spawn_bundle(PbrBundle {
         mesh: meshes.add(shape::Box::new(0.01, 100.0, 10000.0).into()),

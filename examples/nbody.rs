@@ -84,7 +84,7 @@ fn setup(
 
     // camera
     commands
-        .spawn_bundle(PerspectiveCameraBundle::new_3d())
+        .spawn_bundle(Camera3dBundle::default())
         .insert(Rotates);
 }
 
