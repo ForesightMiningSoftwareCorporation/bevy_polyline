@@ -36,6 +36,8 @@ fn setup(
             width: 2.0,
             color: Color::RED,
             perspective: false,
+            // Bias the line toward the camera so the line at the cube-plane intersection is visible
+            depth_bias: -0.0002,
             ..Default::default()
         }),
         ..Default::default()
