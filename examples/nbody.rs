@@ -4,7 +4,6 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::Vec3A,
     prelude::*,
-    window::PresentMode,
 };
 use bevy_polyline::prelude::*;
 
@@ -12,16 +11,12 @@ use lazy_static::*;
 use rand::{prelude::*, Rng};
 use ringbuffer::{ConstGenericRingBuffer, RingBufferExt, RingBufferWrite};
 
-const NUM_BODIES: usize = 500;
+const NUM_BODIES: usize = 1000;
 const TRAIL_LENGTH: usize = 1024;
 const MINIMUM_ANGLE: f32 = 1.48341872; // == acos(5 degrees)
 
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
-            present_mode: PresentMode::Immediate,
-            ..Default::default()
-        })
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(Msaa { samples: 4 })
         .insert_resource(Simulation {
