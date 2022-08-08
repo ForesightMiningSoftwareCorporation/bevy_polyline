@@ -33,12 +33,12 @@ bevy_polyline = "0.3"
 ```
 
 You add it as a plugin to your app:
-```rust
+```rs
 app.add_plugin(PolylinePlugin);
 ```
 
 And then you can add some Polylines through PolylineBundle
-```rust
+```rs
 fn setup(
     mut commands: Commands,
     mut polyline_materials: ResMut<Assets<PolylineMaterial>>,
@@ -82,6 +82,7 @@ We intend to track the `main` branch of Bevy. PRs supporting this are welcome!
 
 | bevy | bevy_polyline |
 | ---- | ------------- |
+| 0.8  | 0.3           |
 | 0.7  | 0.2           |
 | 0.6  | 0.1           |
 
