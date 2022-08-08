@@ -6,7 +6,7 @@ use crate::{
     SHADER_HANDLE,
 };
 use bevy::{
-    core_pipeline::{AlphaMask3d, Opaque3d, Transparent3d},
+    core_pipeline::core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
     ecs::system::{
         lifetimeless::{Read, SQuery, SRes},
         SystemParamItem,
@@ -14,11 +14,11 @@ use bevy::{
     prelude::*,
     reflect::TypeUuid,
     render::{
+        extract_component::ExtractComponentPlugin,
         render_asset::{RenderAsset, RenderAssetPlugin, RenderAssets},
-        render_component::ExtractComponentPlugin,
         render_phase::*,
-        render_resource::{std140::AsStd140, std140::Std140, *},
-        renderer::RenderDevice,
+        render_resource::*,
+        renderer::{RenderDevice, RenderQueue},
         view::{ExtractedView, ViewUniformOffset, VisibleEntities},
         RenderApp, RenderStage,
     },
@@ -70,11 +70,11 @@ impl Default for PolylineMaterial {
 }
 
 impl PolylineMaterial {
-    fn fragment_shader(_asset_server: &AssetServer) -> Handle<Shader> {
+    fn fragment_shader() -> Handle<Shader> {
         SHADER_HANDLE.typed()
     }
 
-    fn vertex_shader(_asset_server: &AssetServer) -> Handle<Shader> {
+    fn vertex_shader() -> Handle<Shader> {
         SHADER_HANDLE.typed()
     }
 
@@ -86,9 +86,7 @@ impl PolylineMaterial {
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: false,
-                    min_binding_size: BufferSize::new(
-                        PolylineMaterialUniform::std140_size_static() as u64,
-                    ),
+                    min_binding_size: BufferSize::new(PolylineMaterialUniform::min_size().into()),
                 },
                 count: None,
             }],
@@ -108,7 +106,7 @@ impl PolylineMaterial {
     }
 }
 
-#[derive(AsStd140, Component, Clone)]
+#[derive(ShaderType, Component, Clone)]
 pub struct PolylineMaterialUniform {
     pub color: Vec4,
     pub depth_bias: f32,
@@ -116,7 +114,7 @@ pub struct PolylineMaterialUniform {
 }
 
 pub struct GpuPolylineMaterial {
-    pub buffer: Buffer,
+    pub buffer: UniformBuffer<PolylineMaterialUniform>,
     pub perspective: bool,
     pub bind_group: BindGroup,
     pub alpha_mode: AlphaMode,
@@ -125,7 +123,11 @@ pub struct GpuPolylineMaterial {
 impl RenderAsset for PolylineMaterial {
     type ExtractedAsset = PolylineMaterial;
     type PreparedAsset = GpuPolylineMaterial;
-    type Param = (SRes<RenderDevice>, SRes<PolylineMaterialPipeline>);
+    type Param = (
+        SRes<RenderDevice>,
+        SRes<RenderQueue>,
+        SRes<PolylineMaterialPipeline>,
+    );
 
     fn extract_asset(&self) -> Self::ExtractedAsset {
         *self
@@ -133,7 +135,7 @@ impl RenderAsset for PolylineMaterial {
 
     fn prepare_asset(
         material: Self::ExtractedAsset,
-        (render_device, polyline_pipeline): &mut bevy::ecs::system::SystemParamItem<Self::Param>,
+        (device, queue, polyline_pipeline): &mut bevy::ecs::system::SystemParamItem<Self::Param>,
     ) -> Result<
         Self::PreparedAsset,
         bevy::render::render_asset::PrepareAssetError<Self::ExtractedAsset>,
@@ -143,18 +145,14 @@ impl RenderAsset for PolylineMaterial {
             depth_bias: material.depth_bias,
             color: material.color.as_linear_rgba_f32().into(),
         };
-        let value_std140 = value.as_std140();
 
-        let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
-            label: Some("polyline_material_uniform_buffer"),
-            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-            contents: value_std140.as_bytes(),
-        });
+        let mut buffer = UniformBuffer::from(value);
+        buffer.write_buffer(device, queue);
 
-        let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+        let bind_group = device.create_bind_group(&BindGroupDescriptor {
             entries: &[BindGroupEntry {
                 binding: 0,
-                resource: buffer.as_entire_binding(),
+                resource: buffer.binding().unwrap(),
             }],
             label: Some("polyline_material_bind_group"),
             layout: &polyline_pipeline.material_layout,
@@ -205,15 +203,14 @@ pub struct PolylineMaterialPipeline {
 
 impl FromWorld for PolylineMaterialPipeline {
     fn from_world(world: &mut World) -> Self {
-        let asset_server = world.get_resource::<AssetServer>().unwrap();
         let render_device = world.get_resource::<RenderDevice>().unwrap();
         let material_layout = PolylineMaterial::bind_group_layout(render_device);
 
         PolylineMaterialPipeline {
             polyline_pipeline: world.get_resource::<PolylinePipeline>().unwrap().to_owned(),
             material_layout,
-            vertex_shader: PolylineMaterial::vertex_shader(asset_server),
-            fragment_shader: PolylineMaterial::fragment_shader(asset_server),
+            vertex_shader: PolylineMaterial::vertex_shader(),
+            fragment_shader: PolylineMaterial::fragment_shader(),
         }
     }
 }
