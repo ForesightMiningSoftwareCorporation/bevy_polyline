@@ -9,14 +9,14 @@ use bevy::{
     prelude::*,
     reflect::TypeUuid,
     render::{
+        extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
         render_asset::{RenderAsset, RenderAssetPlugin, RenderAssets},
-        render_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
         render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
-        render_resource::{std140::AsStd140, *},
+        render_resource::*,
         renderer::RenderDevice,
         texture::BevyDefault,
         view::{ViewUniform, ViewUniforms},
-        RenderApp, RenderStage,
+        Extract, RenderApp, RenderStage,
     },
 };
 
@@ -91,7 +91,7 @@ impl RenderAsset for Polyline {
     }
 }
 
-#[derive(AsStd140, Component, Clone)]
+#[derive(Component, Clone, ShaderType)]
 pub struct PolylineUniform {
     pub transform: Mat4,
     //pub inverse_transpose_model: Mat4,
@@ -107,16 +107,18 @@ pub struct GpuPolyline {
 pub fn extract_polylines(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Query<(
-        Entity,
-        &ComputedVisibility,
-        &GlobalTransform,
-        &Handle<Polyline>,
-    )>,
+    query: Extract<
+        Query<(
+            Entity,
+            &ComputedVisibility,
+            &GlobalTransform,
+            &Handle<Polyline>,
+        )>,
+    >,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, computed_visibility, transform, handle) in query.iter() {
-        if !computed_visibility.is_visible {
+        if !computed_visibility.is_visible() {
             continue;
         }
         let transform = transform.compute_matrix();
@@ -153,7 +155,7 @@ impl FromWorld for PolylinePipeline {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
-                        min_binding_size: BufferSize::new(ViewUniform::std140_size_static() as u64),
+                        min_binding_size: BufferSize::new(ViewUniform::min_size().into()),
                     },
                     count: None,
                 },
@@ -168,7 +170,7 @@ impl FromWorld for PolylinePipeline {
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: true,
-                    min_binding_size: BufferSize::new(PolylineUniform::std140_size_static() as u64),
+                    min_binding_size: BufferSize::new(PolylineUniform::min_size().into()),
                 },
                 count: None,
             }],
@@ -229,11 +231,11 @@ impl SpecializedRenderPipeline for PolylinePipeline {
                 shader: SHADER_HANDLE.typed::<Shader>(),
                 shader_defs,
                 entry_point: "fragment".into(),
-                targets: vec![ColorTargetState {
+                targets: vec![Some(ColorTargetState {
                     format: TextureFormat::bevy_default(),
                     blend,
                     write_mask: ColorWrites::ALL,
-                }],
+                })],
             }),
             layout: None, // This is set in `PolylineMaterialPipeline::specialize()`
             primitive: PrimitiveState {

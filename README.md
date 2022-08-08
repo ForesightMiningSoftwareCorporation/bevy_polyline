@@ -29,7 +29,7 @@ Usage of Bevy Polyline is quite simple. First add it to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-bevy_polyline = "0.2"
+bevy_polyline = "0.3"
 ```
 
 You add it as a plugin to your app:
@@ -80,10 +80,10 @@ Due to instancing, Bevy Polyline only makes one drawcall per `PolyLine`, one for
 ## Bevy Version Support
 We intend to track the `main` branch of Bevy. PRs supporting this are welcome!
 
-|bevy|bevy_polyline|
-|---|---|
-|0.7|0.2|
-|0.6|0.1|
+| bevy | bevy_polyline |
+| ---- | ------------- |
+| 0.7  | 0.2           |
+| 0.6  | 0.1           |
 
 ### Community Support
 If you want some help using this plugin, you can ask in the Bevy Discord at https://discord.gg/bevy.
@@ -92,8 +92,8 @@ If you want some help using this plugin, you can ask in the Bevy Discord at http
 
 bevy_polyline is free and open source! All code in this repository is dual-licensed under either:
 
-* MIT License (LICENSE-MIT or http://opensource.org/licenses/MIT)
-* Apache License, Version 2.0 (LICENSE-APACHE or http://www.apache.org/licenses/LICENSE-2.0)
+* MIT License ([LICENSE-MIT](LICENSE-MIT) or [http://opensource.org/licenses/MIT](http://opensource.org/licenses/MIT))
+* Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0))
 
 at your option. This means you can select the license you prefer! This dual-licensing approach is the de-facto standard in the Rust ecosystem and there are very good reasons to include both.
 
