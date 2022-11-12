@@ -185,6 +185,7 @@ impl FromWorld for PolylinePipeline {
 
 impl SpecializedRenderPipeline for PolylinePipeline {
     type Key = PolylinePipelineKey;
+
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let vertex_attributes = vec![
             VertexAttribute {
@@ -207,6 +208,13 @@ impl SpecializedRenderPipeline for PolylinePipeline {
             // For the transparent pass, fragments that are closer will be alpha blended
             // but their depth is not written to the depth buffer
             depth_write_enabled = false;
+        } else if key.contains(PolylinePipelineKey::PERSPECTIVE) {
+            // We need to use transparent pass with perspective to support thin line fading.
+            label = "transparent_polyline_pipeline".into();
+            blend = Some(BlendState::ALPHA_BLENDING);
+            // Because we are expecting an opaque matl we should enable depth writes, as we don't
+            // need to blend most lines.
+            depth_write_enabled = true;
         } else {
             label = "opaque_polyline_pipeline".into();
             blend = Some(BlendState::REPLACE);
@@ -215,6 +223,11 @@ impl SpecializedRenderPipeline for PolylinePipeline {
             // depth buffer
             depth_write_enabled = true;
         }
+
+        let format = match key.contains(PolylinePipelineKey::HDR) {
+            true => bevy::render::view::ViewTarget::TEXTURE_FORMAT_HDR,
+            false => TextureFormat::bevy_default(),
+        };
 
         RenderPipelineDescriptor {
             vertex: VertexState {
@@ -232,7 +245,7 @@ impl SpecializedRenderPipeline for PolylinePipeline {
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::bevy_default(),
+                    format,
                     blend,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -281,6 +294,7 @@ bitflags::bitflags! {
         const NONE = 0;
         const PERSPECTIVE = (1 << 0);
         const TRANSPARENT_MAIN_PASS = (1 << 1);
+        const HDR = (1 << 2);
         const MSAA_RESERVED_BITS = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
     }
 }
@@ -297,6 +311,14 @@ impl PolylinePipelineKey {
 
     pub fn msaa_samples(&self) -> u32 {
         1 << ((self.bits >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
+    }
+
+    pub fn from_hdr(hdr: bool) -> Self {
+        if hdr {
+            PolylinePipelineKey::HDR
+        } else {
+            PolylinePipelineKey::NONE
+        }
     }
 }
 

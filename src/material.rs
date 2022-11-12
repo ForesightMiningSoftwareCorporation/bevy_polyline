@@ -330,7 +330,9 @@ pub fn queue_material_polylines(
 
         let inverse_view_matrix = view.transform.compute_matrix().inverse();
         let inverse_view_row_2 = inverse_view_matrix.row(2);
+
         let mut polyline_key = PolylinePipelineKey::from_msaa_samples(msaa.samples);
+        polyline_key |= PolylinePipelineKey::from_hdr(view.hdr);
 
         for visible_entity in &visible_entities.entities {
             if let Ok((material_handle, polyline_uniform)) = material_meshes.get(*visible_entity) {

@@ -12,7 +12,7 @@ use rand::{prelude::*, Rng};
 use ringbuffer::{ConstGenericRingBuffer, RingBufferExt, RingBufferWrite};
 
 const NUM_BODIES: usize = 1000;
-const TRAIL_LENGTH: usize = 1024;
+const TRAIL_LENGTH: usize = 512;
 const MINIMUM_ANGLE: f32 = 1.48341872; // == acos(5 degrees)
 
 fn main() {
@@ -20,7 +20,7 @@ fn main() {
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(Msaa { samples: 4 })
         .insert_resource(Simulation {
-            scale: 1e5,
+            scale: 2e5,
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
@@ -40,20 +40,20 @@ fn setup(
 ) {
     let mut rng = StdRng::seed_from_u64(0);
     for _index in 0..NUM_BODIES {
-        let r = rng.gen_range(2f32..800f32);
+        let r = rng.gen_range(2f32..500f32);
         let theta = rng.gen_range(0f32..2.0 * PI);
         let position = Vec3A::new(
             r * f32::cos(theta),
-            rng.gen_range(-5f32..5f32),
+            rng.gen_range(-500f32..500f32),
             r * f32::sin(theta),
         );
-        let size = rng.gen_range(50f32..2000f32);
+        let size = rng.gen_range(50f32..1000f32);
         commands
             .spawn((
                 Body {
                     mass: size,
                     position,
-                    velocity: position.cross(Vec3A::Y).normalize() * 0.00018,
+                    velocity: position.cross(Vec3A::Y).normalize() * 0.00019,
                     ..Default::default()
                 },
                 Trail(ConstGenericRingBuffer::<Vec3A, TRAIL_LENGTH>::new()),
@@ -63,13 +63,8 @@ fn setup(
                     vertices: Vec::with_capacity(TRAIL_LENGTH),
                 }),
                 material: polyline_materials.add(PolylineMaterial {
-                    width: size,
-                    color: Color::hsla(
-                        rng.gen_range(0.0..360.0),
-                        1.0,
-                        rng.gen_range(0.4..0.7),
-                        0.99,
-                    ),
+                    width: (size * 0.1).powf(1.8),
+                    color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, rng.gen_range(0.4..0.7)),
                     perspective: true,
                     ..Default::default()
                 }),
