@@ -29,7 +29,7 @@ Usage of Bevy Polyline is quite simple. First add it to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-bevy_polyline = "0.3"
+bevy_polyline = "0.4"
 ```
 
 You add it as a plugin to your app:
@@ -44,18 +44,18 @@ fn setup(
     mut polyline_materials: ResMut<Assets<PolylineMaterial>>,
     mut polylines: ResMut<Assets<Polyline>>,
 ) {
-    commands.spawn_bundle(PolylineBundle {
+    commands.spawn(PolylineBundle {
         polyline: polylines.add(Polyline {
             vertices: vec![-Vec3::ONE, Vec3::ONE],
-            ..Default::default()
+            ..default()
         }),
         material: polyline_materials.add(PolylineMaterial {
             width: 3.0,
             color: Color::RED,
             perspective: true,
-            ..Default::default()
+            ..default()
         }),
-        ..Default::default()
+        ..default()
     });
 }
 ```
@@ -82,6 +82,7 @@ We intend to track the `main` branch of Bevy. PRs supporting this are welcome!
 
 | bevy | bevy_polyline |
 | ---- | ------------- |
+| 0.9  | 0.4           |
 | 0.8  | 0.3           |
 | 0.7  | 0.2           |
 | 0.6  | 0.1           |
