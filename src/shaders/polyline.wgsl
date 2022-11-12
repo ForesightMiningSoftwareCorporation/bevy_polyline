@@ -6,8 +6,8 @@ struct View {
     projection: mat4x4<f32>,
     inverse_projection: mat4x4<f32>,
     world_position: vec3<f32>,
-    width: f32,
-    height: f32,
+    // viewport(x_origin, y_origin, width, height)
+    viewport: vec4<f32>,
 };
 
 @group(0) @binding(0)
@@ -59,7 +59,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     let clip1 = view.view_proj * polyline.model * vec4<f32>(vertex.I_Point1_, 1.0);
     let clip = mix(clip0, clip1, position.z);
 
-    let resolution = vec2<f32>(view.width, view.height);
+    let resolution = vec2<f32>(view.viewport.z, view.viewport.w);
     let screen0 = resolution * (0.5 * clip0.xy / clip0.w + 0.5);
     let screen1 = resolution * (0.5 * clip1.xy / clip1.w + 0.5);
 

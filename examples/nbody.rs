@@ -49,7 +49,7 @@ fn setup(
         );
         let size = rng.gen_range(50f32..2000f32);
         commands
-            .spawn_bundle((
+            .spawn((
                 Body {
                     mass: size,
                     position,
@@ -58,7 +58,7 @@ fn setup(
                 },
                 Trail(ConstGenericRingBuffer::<Vec3A, TRAIL_LENGTH>::new()),
             ))
-            .insert_bundle(PolylineBundle {
+            .insert(PolylineBundle {
                 polyline: polylines.add(Polyline {
                     vertices: Vec::with_capacity(TRAIL_LENGTH),
                 }),
@@ -78,9 +78,7 @@ fn setup(
     }
 
     // camera
-    commands
-        .spawn_bundle(Camera3dBundle::default())
-        .insert(Rotates);
+    commands.spawn(Camera3dBundle::default()).insert(Rotates);
 }
 
 /// this component indicates what entities should rotate
@@ -89,7 +87,7 @@ struct Rotates;
 
 fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Rotates>>) {
     for mut transform in query.iter_mut() {
-        let t = time.seconds_since_startup() as f32;
+        let t = time.elapsed_seconds();
         let r = 1100.0;
         *transform = Transform::from_xyz(
             r * f32::cos(t * 0.1),
@@ -108,7 +106,7 @@ struct Body {
     position: Vec3A,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 struct Simulation {
     pub accumulator: f32,
     pub is_paused: bool,

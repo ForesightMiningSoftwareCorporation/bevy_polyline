@@ -137,7 +137,7 @@ pub fn extract_polylines(
     commands.insert_or_spawn_batch(values);
 }
 
-#[derive(Clone)]
+#[derive(Clone, Resource)]
 pub struct PolylinePipeline {
     pub view_layout: BindGroupLayout,
     pub polyline_layout: BindGroupLayout,
@@ -266,7 +266,7 @@ impl SpecializedRenderPipeline for PolylinePipeline {
             multisample: MultisampleState {
                 count: key.msaa_samples(),
                 mask: !0,
-                alpha_to_coverage_enabled: false, //TODO: Do we need this for blending faded lines?
+                alpha_to_coverage_enabled: false,
             },
             label: Some(label),
         }
@@ -276,29 +276,31 @@ impl SpecializedRenderPipeline for PolylinePipeline {
 bitflags::bitflags! {
     #[repr(transparent)]
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
-    /// MSAA uses the highest 6 bits for the MSAA sample count - 1 to support up to 64x MSAA.
+    // MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct PolylinePipelineKey: u32 {
         const NONE = 0;
         const PERSPECTIVE = (1 << 0);
         const TRANSPARENT_MAIN_PASS = (1 << 1);
-        const MSAA_RESERVED_BITS = PolylinePipelineKey::MSAA_MASK_BITS << PolylinePipelineKey::MSAA_SHIFT_BITS;
+        const MSAA_RESERVED_BITS = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
     }
 }
 
 impl PolylinePipelineKey {
-    const MSAA_MASK_BITS: u32 = 0b111111;
-    const MSAA_SHIFT_BITS: u32 = 32 - 6;
+    const MSAA_MASK_BITS: u32 = 0b111;
+    const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
-        let msaa_bits = ((msaa_samples - 1) & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
-        PolylinePipelineKey::from_bits(msaa_bits).unwrap()
+        let msaa_bits =
+            (msaa_samples.trailing_zeros() & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
+        Self::from_bits(msaa_bits).unwrap()
     }
 
     pub fn msaa_samples(&self) -> u32 {
-        ((self.bits >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS) + 1
+        1 << ((self.bits >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
     }
 }
 
+#[derive(Resource)]
 pub struct PolylineBindGroup {
     pub value: BindGroup,
 }
