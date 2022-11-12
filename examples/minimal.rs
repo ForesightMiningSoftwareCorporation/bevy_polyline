@@ -14,7 +14,7 @@ fn setup(
     mut polyline_materials: ResMut<Assets<PolylineMaterial>>,
     mut polylines: ResMut<Assets<Polyline>>,
 ) {
-    commands.spawn_bundle(PolylineBundle {
+    commands.spawn(PolylineBundle {
         polyline: polylines.add(Polyline {
             vertices: vec![-Vec3::ONE, Vec3::ONE],
             ..Default::default()
@@ -29,7 +29,7 @@ fn setup(
     });
 
     // camera
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 0.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..Camera3dBundle::default()
     });

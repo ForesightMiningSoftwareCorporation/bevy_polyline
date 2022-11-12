@@ -137,7 +137,7 @@ pub fn extract_polylines(
     commands.insert_or_spawn_batch(values);
 }
 
-#[derive(Clone)]
+#[derive(Clone, Resource)]
 pub struct PolylinePipeline {
     pub view_layout: BindGroupLayout,
     pub polyline_layout: BindGroupLayout,
@@ -266,7 +266,7 @@ impl SpecializedRenderPipeline for PolylinePipeline {
             multisample: MultisampleState {
                 count: key.msaa_samples(),
                 mask: !0,
-                alpha_to_coverage_enabled: false, //TODO: Do we need this for blending faded lines?
+                alpha_to_coverage_enabled: false,
             },
             label: Some(label),
         }
@@ -299,6 +299,7 @@ impl PolylinePipelineKey {
     }
 }
 
+#[derive(Resource)]
 pub struct PolylineBindGroup {
     pub value: BindGroup,
 }

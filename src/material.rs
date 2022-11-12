@@ -194,6 +194,7 @@ impl Plugin for PolylineMaterialPlugin {
     }
 }
 
+#[derive(Resource)]
 pub struct PolylineMaterialPipeline {
     pub polyline_pipeline: PolylinePipeline,
     pub material_layout: BindGroupLayout,
