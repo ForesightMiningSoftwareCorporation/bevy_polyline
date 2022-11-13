@@ -64,13 +64,14 @@ fn setup(
     commands
         .spawn(Camera3dBundle::default())
         .insert(Transform::from_xyz(100.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y));
-    commands
-        .spawn(PbrBundle {
+    commands.spawn((
+        PbrBundle {
             mesh: meshes.add(shape::Box::new(0.01, 100.0, 10000.0).into()),
             material: pbr_materials.add(Color::WHITE.into()),
             ..default()
-        })
-        .insert(Rotating(30.0));
+        },
+        Rotating(30.0),
+    ));
     let top = Vec3::Y * 100.0;
     let bottom = Vec3::Y * -100.0;
     // Show the middle as a vertical red bar.

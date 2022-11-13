@@ -64,12 +64,13 @@ fn setup(
     });
 
     // camera
-    commands
-        .spawn(Camera3dBundle {
+    commands.spawn((
+        Camera3dBundle {
             transform: Transform::from_xyz(-2.0, 2.5, -5.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..Camera3dBundle::default()
-        })
-        .insert(Rotates);
+        },
+        Rotates,
+    ));
 }
 
 /// this component indicates what entities should rotate

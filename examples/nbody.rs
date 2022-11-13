@@ -4,6 +4,7 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::Vec3A,
     prelude::*,
+    window::PresentMode,
 };
 use bevy_polyline::prelude::*;
 
@@ -11,8 +12,8 @@ use lazy_static::*;
 use rand::{prelude::*, Rng};
 use ringbuffer::{ConstGenericRingBuffer, RingBufferExt, RingBufferWrite};
 
-const NUM_BODIES: usize = 1000;
-const TRAIL_LENGTH: usize = 512;
+const NUM_BODIES: usize = 512;
+const TRAIL_LENGTH: usize = 1024;
 const MINIMUM_ANGLE: f32 = 1.48341872; // == acos(5 degrees)
 
 fn main() {
@@ -20,13 +21,23 @@ fn main() {
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(Msaa { samples: 4 })
         .insert_resource(Simulation {
-            scale: 2e5,
+            scale: 1e5,
             ..Default::default()
         })
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                width: 1920.0,
+                height: 1080.0,
+                resizable: false,
+                present_mode: PresentMode::Immediate,
+                ..default()
+            },
+            ..default()
+        }))
         .add_plugin(PolylinePlugin)
         .add_startup_system(setup)
         .add_system(nbody_system)
+        .add_system(update_trails.after(nbody_system))
         .add_system(rotator_system)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
@@ -40,7 +51,7 @@ fn setup(
 ) {
     let mut rng = StdRng::seed_from_u64(0);
     for _index in 0..NUM_BODIES {
-        let r = rng.gen_range(2f32..500f32);
+        let r = rng.gen_range(2f32..800f32);
         let theta = rng.gen_range(0f32..2.0 * PI);
         let position = Vec3A::new(
             r * f32::cos(theta),
@@ -48,32 +59,44 @@ fn setup(
             r * f32::sin(theta),
         );
         let size = rng.gen_range(50f32..1000f32);
-        commands
-            .spawn((
-                Body {
-                    mass: size,
-                    position,
-                    velocity: position.cross(Vec3A::Y).normalize() * 0.00019,
-                    ..Default::default()
-                },
-                Trail(ConstGenericRingBuffer::<Vec3A, TRAIL_LENGTH>::new()),
-            ))
-            .insert(PolylineBundle {
+        commands.spawn((
+            Body {
+                mass: size,
+                position,
+                velocity: position.cross(Vec3A::Y).normalize() * 0.00019,
+                ..Default::default()
+            },
+            Trail(ConstGenericRingBuffer::<Vec3A, TRAIL_LENGTH>::new()),
+            PolylineBundle {
                 polyline: polylines.add(Polyline {
                     vertices: Vec::with_capacity(TRAIL_LENGTH),
                 }),
                 material: polyline_materials.add(PolylineMaterial {
                     width: (size * 0.1).powf(1.8),
-                    color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, rng.gen_range(0.4..0.7)),
+                    color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, rng.gen_range(0.4..2.0)),
                     perspective: true,
                     ..Default::default()
                 }),
                 ..Default::default()
-            });
+            },
+        ));
     }
 
     // camera
-    commands.spawn(Camera3dBundle::default()).insert(Rotates);
+    commands.spawn((
+        Camera3dBundle {
+            camera: Camera {
+                hdr: true,
+                ..default()
+            },
+            ..default()
+        },
+        bevy::core_pipeline::bloom::BloomSettings {
+            intensity: 0.1,
+            ..default()
+        },
+        Rotates,
+    ));
 }
 
 /// this component indicates what entities should rotate
@@ -144,7 +167,6 @@ const EPSILON: f32 = 1.;
 fn nbody_system(
     time: Res<Time>,
     mut simulation: ResMut<Simulation>,
-    mut polylines: ResMut<Assets<Polyline>>,
     mut query: Query<(Entity, &mut Body, &mut Trail, &Handle<Polyline>)>,
 ) {
     let mut bodies = query.iter_mut().collect::<Vec<_>>();
@@ -188,9 +210,13 @@ fn nbody_system(
             }
         }
     }
+}
 
-    // Update Trails
-    query.for_each_mut(|(_, body, mut trail, polyline)| {
+fn update_trails(
+    mut polylines: ResMut<Assets<Polyline>>,
+    mut query: Query<(&Body, &mut Trail, &Handle<Polyline>)>,
+) {
+    query.for_each_mut(|(body, mut trail, polyline)| {
         if let Some(position) = trail.0.back() {
             let last_vec = *position - body.position;
             let last_last_vec = if let Some(position) = trail.0.get(-2) {
