@@ -224,10 +224,8 @@ impl SpecializedRenderPipeline for PolylineMaterialPipeline {
             descriptor
                 .vertex
                 .shader_defs
-                .push("POLYLINE_PERSPECTIVE".to_string());
+                .push("POLYLINE_PERSPECTIVE".into());
         }
-        //descriptor.vertex.shader = self.vertex_shader.clone();
-        //descriptor.fragment.as_mut().unwrap().shader = self.fragment_shader.clone();
         descriptor.layout = Some(vec![
             self.polyline_pipeline.view_layout.clone(),
             self.polyline_pipeline.polyline_layout.clone(),
