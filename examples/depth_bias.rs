@@ -58,7 +58,6 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut pbr_materials: ResMut<Assets<StandardMaterial>>,
-    mut polylines: ResMut<Assets<Polyline>>,
     mut materials: ResMut<Assets<PolylineMaterial>>,
 ) {
     commands
@@ -76,9 +75,9 @@ fn setup(
     let bottom = Vec3::Y * -100.0;
     // Show the middle as a vertical red bar.
     commands.spawn(PolylineBundle {
-        polyline: polylines.add(Polyline {
+        polyline: Polyline {
             vertices: vec![top, bottom],
-        }),
+        },
         material: materials.add(PolylineMaterial {
             width: 5.0,
             color: Color::RED,
@@ -94,9 +93,7 @@ fn setup(
         let left = Vec3::new(0.0, bias * 35.0, -500.0);
         let right = Vec3::new(0.0, bias * 35.0, 500.0);
         commands.spawn(PolylineBundle {
-            polyline: polylines.add(Polyline {
-                vertices: vec![left, right],
-            }),
+            polyline: Polyline::new(vec![left, right]),
             material: materials.add(PolylineMaterial {
                 width: 1.0,
                 color: Color::hsl((bias + 1.0) / 2.0 * 270.0, 1.0, 0.5),

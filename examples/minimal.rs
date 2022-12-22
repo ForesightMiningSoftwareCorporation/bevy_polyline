@@ -9,16 +9,9 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    mut polyline_materials: ResMut<Assets<PolylineMaterial>>,
-    mut polylines: ResMut<Assets<Polyline>>,
-) {
+fn setup(mut commands: Commands, mut polyline_materials: ResMut<Assets<PolylineMaterial>>) {
     commands.spawn(PolylineBundle {
-        polyline: polylines.add(Polyline {
-            vertices: vec![-Vec3::ONE, Vec3::ONE],
-            ..Default::default()
-        }),
+        polyline: Polyline::new(vec![-Vec3::ONE, Vec3::ONE]),
         material: polyline_materials.add(PolylineMaterial {
             width: 10.0,
             color: Color::RED,

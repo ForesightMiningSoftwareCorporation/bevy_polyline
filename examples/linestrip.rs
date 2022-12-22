@@ -16,22 +16,18 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
     mut polyline_materials: ResMut<Assets<PolylineMaterial>>,
-    mut polylines: ResMut<Assets<Polyline>>,
 ) {
     commands.spawn(PolylineBundle {
-        polyline: polylines.add(Polyline {
-            vertices: vec![
-                Vec3::new(-0.5, -0.5, -0.5),
-                Vec3::new(0.5, -0.5, -0.5),
-                Vec3::new(0.5, 0.5, -0.5),
-                Vec3::new(-0.5, 0.5, -0.5),
-                Vec3::new(-0.5, 0.5, 0.5),
-                Vec3::new(0.5, 0.5, 0.5),
-                Vec3::new(0.5, -0.5, 0.5),
-                Vec3::new(-0.5, -0.5, 0.5),
-            ],
-            ..Default::default()
-        }),
+        polyline: Polyline::new(vec![
+            Vec3::new(-0.5, -0.5, -0.5),
+            Vec3::new(0.5, -0.5, -0.5),
+            Vec3::new(0.5, 0.5, -0.5),
+            Vec3::new(-0.5, 0.5, -0.5),
+            Vec3::new(-0.5, 0.5, 0.5),
+            Vec3::new(0.5, 0.5, 0.5),
+            Vec3::new(0.5, -0.5, 0.5),
+            Vec3::new(-0.5, -0.5, 0.5),
+        ]),
         material: polyline_materials.add(PolylineMaterial {
             width: 2.0,
             color: Color::RED,
