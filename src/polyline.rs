@@ -15,7 +15,7 @@ use bevy::{
         render_resource::*,
         renderer::RenderDevice,
         texture::BevyDefault,
-        view::{ViewUniform, ViewUniforms},
+        view::{NoFrustumCulling, ViewUniform, ViewUniforms},
         Extract, RenderApp, RenderStage,
     },
     utils::HashMap,
@@ -45,7 +45,7 @@ impl Plugin for PolylineRenderPlugin {
     }
 }
 
-#[derive(Bundle, Default)]
+#[derive(Bundle)]
 pub struct PolylineBundle {
     pub polyline: Polyline,
     pub render_polyline: Handle<RenderPolyline>,
@@ -56,6 +56,22 @@ pub struct PolylineBundle {
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub computed_visibility: ComputedVisibility,
+    pub no_frustum_culling: NoFrustumCulling,
+}
+
+impl Default for PolylineBundle {
+    fn default() -> Self {
+        Self {
+            polyline: Default::default(),
+            render_polyline: Default::default(),
+            material: Default::default(),
+            transform: Default::default(),
+            global_transform: Default::default(),
+            visibility: Default::default(),
+            computed_visibility: Default::default(),
+            no_frustum_culling: NoFrustumCulling,
+        }
+    }
 }
 
 #[derive(Debug, Default, Component, Clone)]
@@ -79,10 +95,10 @@ pub fn update_render_polylines(
                 &Polyline,
                 &mut Handle<RenderPolyline>,
                 &Handle<PolylineMaterial>,
-                &Transform,
+                &GlobalTransform,
             ),
             Or<(
-                Changed<Transform>,
+                Changed<GlobalTransform>,
                 Changed<Handle<PolylineMaterial>>,
                 Changed<Polyline>,
             )>,
@@ -92,38 +108,36 @@ pub fn update_render_polylines(
             &Polyline,
             &mut Handle<RenderPolyline>,
             &Handle<PolylineMaterial>,
-            &Transform,
+            &GlobalTransform,
         )>,
     )>,
-    mut map: Local<HashMap<(Handle<PolylineMaterial>, String), (Entity, Vec<Vec3>)>>,
+    mut map: Local<HashMap<Handle<PolylineMaterial>, (Entity, Vec<Vec3>)>>,
 ) {
     if settings.is_changed() {
-        for (entity, polyline, mut render_polyline, matl, transform) in &mut polylines.p1() {
-            if settings.batching_enabled {
-                map.entry((matl.to_owned(), transform.compute_matrix().to_string()))
-                    .and_modify(|entry: &mut (Entity, Vec<Vec3>)| {
-                        entry.1.push(Vec3::NAN);
-                        entry.1.extend(polyline.vertices.iter());
-                    })
-                    .or_insert((entity, polyline.vertices.clone()));
-                *render_polyline = Handle::default();
-            } else {
-                *render_polyline = render_polylines.add(polyline.into());
-            }
+        for (entity, polyline, render_polyline, matl, transform) in &mut polylines.p1() {
+            batch_polylines(
+                &settings,
+                &mut map,
+                matl,
+                polyline,
+                transform,
+                entity,
+                render_polyline,
+                &mut render_polylines,
+            );
         }
     } else {
-        for (entity, polyline, mut render_polyline, matl, transform) in &mut polylines.p0() {
-            if settings.batching_enabled {
-                map.entry((matl.to_owned(), transform.compute_matrix().to_string()))
-                    .and_modify(|entry: &mut (Entity, Vec<Vec3>)| {
-                        entry.1.push(Vec3::NAN);
-                        entry.1.extend(polyline.vertices.iter());
-                    })
-                    .or_insert((entity, polyline.vertices.clone()));
-                *render_polyline = Handle::default();
-            } else {
-                *render_polyline = render_polylines.add(polyline.into());
-            }
+        for (entity, polyline, render_polyline, matl, transform) in &mut polylines.p0() {
+            batch_polylines(
+                &settings,
+                &mut map,
+                matl,
+                polyline,
+                transform,
+                entity,
+                render_polyline,
+                &mut render_polylines,
+            );
         }
     }
 
@@ -131,6 +145,41 @@ pub fn update_render_polylines(
         let mut query = polylines.p1();
         let (_, _, mut rp, ..) = query.get_mut(entity).unwrap();
         *rp = render_polylines.add(RenderPolyline { vertices });
+    }
+}
+
+fn batch_polylines(
+    settings: &Res<PolylineSettings>,
+    map: &mut Local<bevy::utils::hashbrown::HashMap<Handle<PolylineMaterial>, (Entity, Vec<Vec3>)>>,
+    matl: &Handle<PolylineMaterial>,
+    polyline: &Polyline,
+    transform: &GlobalTransform,
+    entity: Entity,
+    mut render_polyline: Mut<Handle<RenderPolyline>>,
+    render_polylines: &mut ResMut<Assets<RenderPolyline>>,
+) {
+    if settings.batching_enabled {
+        map.entry(matl.to_owned())
+            .and_modify(|entry: &mut (Entity, Vec<Vec3>)| {
+                entry.1.push(Vec3::NAN);
+                entry.1.extend(
+                    polyline
+                        .vertices
+                        .iter()
+                        .map(|v| transform.transform_point(*v)),
+                );
+            })
+            .or_insert((
+                entity,
+                polyline
+                    .vertices
+                    .iter()
+                    .map(|v| transform.transform_point(*v))
+                    .collect(),
+            ));
+        *render_polyline = Handle::default();
+    } else {
+        *render_polyline = render_polylines.add(polyline.into());
     }
 }
 
@@ -202,16 +251,24 @@ pub fn extract_polylines(
             &ComputedVisibility,
             &GlobalTransform,
             &Handle<RenderPolyline>,
+            &Handle<PolylineMaterial>,
         )>,
     >,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    for (entity, computed_visibility, transform, handle) in query.iter() {
-        if !computed_visibility.is_visible() || handle.eq(&Handle::default()) {
+    for (entity, computed_visibility, transform, handle, matl) in query.iter() {
+        if !computed_visibility.is_visible() || *handle == Handle::default() {
             continue;
         }
         let transform = transform.compute_matrix();
-        values.push((entity, (handle.clone_weak(), PolylineUniform { transform })));
+        values.push((
+            entity,
+            (
+                handle.clone_weak(),
+                matl.clone_weak(),
+                PolylineUniform { transform },
+            ),
+        ));
     }
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);
