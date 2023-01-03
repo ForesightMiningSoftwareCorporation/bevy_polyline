@@ -12,7 +12,7 @@ use lazy_static::*;
 use rand::{prelude::*, Rng};
 use ringbuffer::{ConstGenericRingBuffer, RingBufferExt, RingBufferWrite};
 
-const NUM_BODIES: usize = 512;
+const NUM_BODIES: usize = 256;
 const TRAIL_LENGTH: usize = 1024;
 const MINIMUM_ANGLE: f32 = 1.48341872; // == acos(5 degrees)
 
@@ -21,7 +21,7 @@ fn main() {
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(Msaa { samples: 4 })
         .insert_resource(Simulation {
-            scale: 1e5,
+            scale: 4e5,
             ..Default::default()
         })
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -44,12 +44,9 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    mut polyline_materials: ResMut<Assets<PolylineMaterial>>,
-    mut polylines: ResMut<Assets<Polyline>>,
-) {
+fn setup(mut commands: Commands, mut polyline_materials: ResMut<Assets<PolylineMaterial>>) {
     let mut rng = StdRng::seed_from_u64(0);
+
     for _index in 0..NUM_BODIES {
         let r = rng.gen_range(2f32..800f32);
         let theta = rng.gen_range(0f32..2.0 * PI);
@@ -59,6 +56,7 @@ fn setup(
             r * f32::sin(theta),
         );
         let size = rng.gen_range(50f32..1000f32);
+
         commands.spawn((
             Body {
                 mass: size,
@@ -68,9 +66,7 @@ fn setup(
             },
             Trail(ConstGenericRingBuffer::<Vec3A, TRAIL_LENGTH>::new()),
             PolylineBundle {
-                polyline: polylines.add(Polyline {
-                    vertices: Vec::with_capacity(TRAIL_LENGTH),
-                }),
+                polyline: Polyline::new(Vec::with_capacity(TRAIL_LENGTH)),
                 material: polyline_materials.add(PolylineMaterial {
                     width: (size * 0.1).powf(1.8),
                     color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, rng.gen_range(0.4..2.0)),
@@ -167,7 +163,7 @@ const EPSILON: f32 = 1.;
 fn nbody_system(
     time: Res<Time>,
     mut simulation: ResMut<Simulation>,
-    mut query: Query<(Entity, &mut Body, &mut Trail, &Handle<Polyline>)>,
+    mut query: Query<(Entity, &mut Body, &mut Trail, &Polyline)>,
 ) {
     let mut bodies = query.iter_mut().collect::<Vec<_>>();
     // dbg!(&bodies);
@@ -212,11 +208,8 @@ fn nbody_system(
     }
 }
 
-fn update_trails(
-    mut polylines: ResMut<Assets<Polyline>>,
-    mut query: Query<(&Body, &mut Trail, &Handle<Polyline>)>,
-) {
-    query.for_each_mut(|(body, mut trail, polyline)| {
+fn update_trails(mut query: Query<(&Body, &mut Trail, &mut Polyline)>) {
+    query.for_each_mut(|(body, mut trail, mut polyline)| {
         if let Some(position) = trail.0.back() {
             let last_vec = *position - body.position;
             let last_last_vec = if let Some(position) = trail.0.get(-2) {
@@ -227,24 +220,17 @@ fn update_trails(
             let gt_min_angle = last_vec.dot(last_last_vec) > MINIMUM_ANGLE;
             if gt_min_angle {
                 trail.0.push(body.position);
-                polylines.get_mut(polyline).unwrap().vertices =
-                    trail.0.iter().map(|v| Vec3::from(*v)).collect()
+                polyline.vertices = trail.0.iter().map(|v| Vec3::from(*v)).collect()
             } else {
                 // If the last point didn't actually add much of a curve, just overwrite it.
-                if polylines.get_mut(polyline).unwrap().vertices.len() > 1 {
+                if polyline.vertices.len() > 1 {
                     *trail.0.get_mut(-1).unwrap() = body.position;
-                    *polylines
-                        .get_mut(polyline)
-                        .unwrap()
-                        .vertices
-                        .last_mut()
-                        .unwrap() = body.position.into();
+                    *polyline.vertices.last_mut().unwrap() = body.position.into();
                 }
             }
         } else {
             trail.0.push(body.position);
-            polylines.get_mut(polyline).unwrap().vertices =
-                trail.0.iter().map(|v| Vec3::from(*v)).collect()
+            polyline.vertices = trail.0.iter().map(|v| Vec3::from(*v)).collect()
         }
     });
 }

@@ -17,6 +17,18 @@ pub mod prelude {
 pub const SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 12823766040132746065);
 
+#[derive(Resource)]
+pub struct PolylineSettings {
+    pub batching_enabled: bool,
+}
+impl Default for PolylineSettings {
+    fn default() -> Self {
+        Self {
+            batching_enabled: true,
+        }
+    }
+}
+
 pub struct PolylinePlugin;
 
 impl Plugin for PolylinePlugin {

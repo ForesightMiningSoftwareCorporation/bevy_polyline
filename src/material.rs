@@ -180,7 +180,6 @@ pub struct PolylineMaterialPlugin;
 impl Plugin for PolylineMaterialPlugin {
     fn build(&self, app: &mut App) {
         app.add_asset::<PolylineMaterial>()
-            .add_plugin(ExtractComponentPlugin::<Handle<PolylineMaterial>>::default())
             .add_plugin(RenderAssetPlugin::<PolylineMaterial>::default());
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app

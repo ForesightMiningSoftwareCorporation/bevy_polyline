@@ -1,4 +1,4 @@
-use crate::{material::PolylineMaterial, SHADER_HANDLE};
+use crate::{material::PolylineMaterial, PolylineSettings, SHADER_HANDLE};
 use bevy::{
     core::cast_slice,
     ecs::system::{
@@ -15,24 +15,28 @@ use bevy::{
         render_resource::*,
         renderer::RenderDevice,
         texture::BevyDefault,
-        view::{ViewUniform, ViewUniforms},
+        view::{NoFrustumCulling, ViewUniform, ViewUniforms},
         Extract, RenderApp, RenderStage,
     },
+    utils::HashMap,
 };
 
 pub struct PolylineBasePlugin;
 
 impl Plugin for PolylineBasePlugin {
     fn build(&self, app: &mut App) {
-        app.add_asset::<Polyline>()
-            .add_plugin(RenderAssetPlugin::<Polyline>::default());
+        app.init_resource::<PolylineSettings>()
+            .add_asset::<RenderPolyline>()
+            .add_plugin(RenderAssetPlugin::<RenderPolyline>::default());
     }
 }
 
 pub struct PolylineRenderPlugin;
 impl Plugin for PolylineRenderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(UniformComponentPlugin::<PolylineUniform>::default());
+        app.add_plugin(UniformComponentPlugin::<PolylineUniform>::default())
+            .add_system_to_stage(CoreStage::PostUpdate, update_render_polylines);
+
         app.sub_app_mut(RenderApp)
             .init_resource::<PolylinePipeline>()
             .add_system_to_stage(RenderStage::Extract, extract_polylines)
@@ -41,9 +45,9 @@ impl Plugin for PolylineRenderPlugin {
     }
 }
 
-#[derive(Bundle, Default)]
+#[derive(Bundle)]
 pub struct PolylineBundle {
-    pub polyline: Handle<Polyline>,
+    pub polyline: Polyline,
     pub material: Handle<PolylineMaterial>,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
@@ -51,16 +55,154 @@ pub struct PolylineBundle {
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub computed_visibility: ComputedVisibility,
+    pub no_frustum_culling: NoFrustumCulling,
 }
 
-#[derive(Debug, Default, Component, Clone, TypeUuid)]
-#[uuid = "c76af88a-8afe-405c-9a64-0a7d845d2546"]
+impl Default for PolylineBundle {
+    fn default() -> Self {
+        Self {
+            polyline: Default::default(),
+            material: Default::default(),
+            transform: Default::default(),
+            global_transform: Default::default(),
+            visibility: Default::default(),
+            computed_visibility: Default::default(),
+            no_frustum_culling: NoFrustumCulling,
+        }
+    }
+}
+
+#[derive(Debug, Default, Component, Clone)]
 pub struct Polyline {
     pub vertices: Vec<Vec3>,
 }
 
-impl RenderAsset for Polyline {
-    type ExtractedAsset = Polyline;
+impl Polyline {
+    pub fn new(vertices: Vec<Vec3>) -> Self {
+        Self { vertices }
+    }
+}
+
+#[derive(Resource)]
+pub struct BatchedPolylines {
+    map: HashMap<Handle<PolylineMaterial>, HashMap<Entity, Vec<Vec3>>>,
+}
+
+pub fn update_render_polylines(
+    settings: Res<PolylineSettings>,
+    mut render_polylines: ResMut<Assets<RenderPolyline>>,
+    mut polylines: ParamSet<(
+        Query<
+            (
+                Entity,
+                &Polyline,
+                &mut Handle<RenderPolyline>,
+                &Handle<PolylineMaterial>,
+                &GlobalTransform,
+            ),
+            Or<(
+                Changed<GlobalTransform>,
+                Changed<Handle<PolylineMaterial>>,
+                Changed<Polyline>,
+            )>,
+        >,
+        Query<(
+            Entity,
+            &Polyline,
+            &mut Handle<RenderPolyline>,
+            &Handle<PolylineMaterial>,
+            &GlobalTransform,
+        )>,
+    )>,
+    mut map: ResMut<BatchedPolylines>,
+) {
+    if settings.is_changed() {
+        for (entity, polyline, render_polyline, matl, transform) in &mut polylines.p1() {
+            batch_polylines(
+                &settings,
+                &mut map,
+                matl,
+                polyline,
+                transform,
+                entity,
+                render_polyline,
+                &mut render_polylines,
+            );
+        }
+    } else {
+        for (entity, polyline, render_polyline, matl, transform) in &mut polylines.p0() {
+            batch_polylines(
+                &settings,
+                &mut map,
+                matl,
+                polyline,
+                transform,
+                entity,
+                render_polyline,
+                &mut render_polylines,
+            );
+        }
+    }
+}
+
+fn batch_polylines(
+    settings: &Res<PolylineSettings>,
+    batched_polylines: &mut ResMut<BatchedPolylines>,
+    matl: &Handle<PolylineMaterial>,
+    polyline: &Polyline,
+    transform: &GlobalTransform,
+    entity: Entity,
+    mut render_polyline: Mut<Handle<RenderPolyline>>,
+    render_polylines: &mut ResMut<Assets<RenderPolyline>>,
+) {
+    if settings.batching_enabled {
+        batched_polylines
+            .map
+            .entry(matl.to_owned())
+            .and_modify(|entry: &mut HashMap<Entity, Vec<Vec3>>| {
+                entry.insert(
+                    entity,
+                    polyline
+                        .vertices
+                        .iter()
+                        .map(|v| transform.transform_point(*v))
+                        .collect(),
+                );
+            })
+            .or_insert({
+                let mut hashmap = HashMap::new();
+                hashmap.insert(
+                    entity,
+                    polyline
+                        .vertices
+                        .iter()
+                        .map(|v| transform.transform_point(*v))
+                        .collect(),
+                );
+                hashmap
+            });
+        *render_polyline = Handle::default();
+    } else {
+        *render_polyline = render_polylines.add(polyline.into());
+    }
+}
+
+#[derive(Debug, Default, Component, Clone, TypeUuid)]
+#[uuid = "c76af88a-8afe-405c-9a64-0a7d845d2546"]
+pub struct RenderPolyline {
+    pub vertices: Vec<Vec3>,
+}
+
+impl From<&Polyline> for RenderPolyline {
+    fn from(polyline: &Polyline) -> Self {
+        RenderPolyline {
+            vertices: polyline.vertices.clone(),
+        }
+    }
+}
+
+impl RenderAsset for RenderPolyline {
+    type ExtractedAsset = RenderPolyline;
 
     type PreparedAsset = GpuPolyline;
 
@@ -104,21 +246,23 @@ pub struct GpuPolyline {
     pub vertex_count: u32,
 }
 
+//TODO: currently converting this from a query to building polyline assets from the batched polyline resource.
 pub fn extract_polylines(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<
-        Query<(
-            Entity,
-            &ComputedVisibility,
-            &GlobalTransform,
-            &Handle<Polyline>,
-        )>,
-    >,
+    batched_polylines: Extract<Res<BatchedPolylines>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    for (entity, computed_visibility, transform, handle) in query.iter() {
-        if !computed_visibility.is_visible() {
+    for (matl, map) in batched_polylines.map.iter() {
+        let mut verts = Vec::new();
+        for group in map.values() {
+            verts.append(&mut group.to_owned());
+            verts.push(Vec3::NAN);
+        }
+        values.push
+    }
+    for (entity, computed_visibility, transform, handle, matl) in query.iter() {
+        if !computed_visibility.is_visible() || *handle == Handle::default() {
             continue;
         }
         let transform = transform.compute_matrix();
@@ -126,10 +270,8 @@ pub fn extract_polylines(
             entity,
             (
                 handle.clone_weak(),
-                PolylineUniform {
-                    transform,
-                    //inverse_transpose_model: transform.inverse().transpose(),
-                },
+                matl.clone_weak(),
+                PolylineUniform { transform },
             ),
         ));
     }
@@ -457,7 +599,10 @@ impl<const I: usize> EntityRenderCommand for SetPolylineBindGroup<I> {
 
 pub struct DrawPolyline;
 impl EntityRenderCommand for DrawPolyline {
-    type Param = (SRes<RenderAssets<Polyline>>, SQuery<Read<Handle<Polyline>>>);
+    type Param = (
+        SRes<RenderAssets<RenderPolyline>>,
+        SQuery<Read<Handle<RenderPolyline>>>,
+    );
     #[inline]
     fn render<'w>(
         _view: Entity,
