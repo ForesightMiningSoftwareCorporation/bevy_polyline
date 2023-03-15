@@ -21,7 +21,7 @@ use bevy_polyline::prelude::*;
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
-        .insert_resource(Msaa { samples: 4 })
+        .insert_resource(Msaa::default())
         .add_plugins(DefaultPlugins)
         .add_plugin(PolylinePlugin)
         .add_system(move_camera)

@@ -386,9 +386,9 @@ pub fn queue_material_polylines(
                                 distance: polyline_z,
                             });
                         }
-                        AlphaMode::Premultiplied => todo!(),
-                        AlphaMode::Add => todo!(),
-                        AlphaMode::Multiply => todo!(),
+                        AlphaMode::Premultiplied => unimplemented!(),
+                        AlphaMode::Add => unimplemented!(),
+                        AlphaMode::Multiply => unimplemented!(),
                     }
                 }
             }

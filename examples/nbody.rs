@@ -19,7 +19,7 @@ const MINIMUM_ANGLE: f32 = 1.48341872; // == acos(5 degrees)
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
-        .insert_resource(Msaa::Sample4)
+        .insert_resource(Msaa::default())
         .insert_resource(Simulation {
             scale: 1e5,
             ..Default::default()
