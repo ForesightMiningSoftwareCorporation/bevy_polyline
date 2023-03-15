@@ -19,19 +19,18 @@ const MINIMUM_ANGLE: f32 = 1.48341872; // == acos(5 degrees)
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
-        .insert_resource(Msaa { samples: 4 })
+        .insert_resource(Msaa::Sample4)
         .insert_resource(Simulation {
             scale: 1e5,
             ..Default::default()
         })
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
-                width: 1920.0,
-                height: 1080.0,
+            primary_window: Some(Window {
+                resolution: (1920.0, 1080.0).into(),
                 resizable: false,
                 present_mode: PresentMode::Immediate,
                 ..default()
-            },
+            }),
             ..default()
         }))
         .add_plugin(PolylinePlugin)
