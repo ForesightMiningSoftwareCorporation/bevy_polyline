@@ -27,7 +27,7 @@ bevy = { version = "0.10", default-features = false, features = [
 
 [dependencies.naga]
 features = ["glsl-in", "spv-out", "wgsl-out"]
-version = "0.10"
+version = "0.11"
 
 [dev-dependencies]
 lazy_static = "1.4.0"
