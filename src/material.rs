@@ -7,9 +7,12 @@ use crate::{
 };
 use bevy::{
     core_pipeline::core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
-    ecs::system::{
-        lifetimeless::{Read, SQuery, SRes},
-        SystemParamItem,
+    ecs::{
+        query::ROQueryItem,
+        system::{
+            lifetimeless::{Read, SRes},
+            SystemParamItem,
+        },
     },
     prelude::*,
     reflect::TypeUuid,
@@ -20,7 +23,7 @@ use bevy::{
         render_resource::*,
         renderer::{RenderDevice, RenderQueue},
         view::{ExtractedView, ViewUniformOffset, VisibleEntities},
-        RenderApp, RenderStage,
+        RenderApp, RenderSet,
     },
 };
 use std::fmt::Debug;
@@ -189,7 +192,7 @@ impl Plugin for PolylineMaterialPlugin {
                 .add_render_command::<AlphaMask3d, DrawMaterial>()
                 .init_resource::<PolylineMaterialPipeline>()
                 .init_resource::<SpecializedRenderPipelines<PolylineMaterialPipeline>>()
-                .add_system_to_stage(RenderStage::Queue, queue_material_polylines);
+                .add_system(queue_material_polylines.in_set(RenderSet::Queue));
         }
     }
 }
@@ -226,11 +229,11 @@ impl SpecializedRenderPipeline for PolylineMaterialPipeline {
                 .shader_defs
                 .push("POLYLINE_PERSPECTIVE".into());
         }
-        descriptor.layout = Some(vec![
+        descriptor.layout = vec![
             self.polyline_pipeline.view_layout.clone(),
             self.polyline_pipeline.polyline_layout.clone(),
             self.material_layout.clone(),
-        ]);
+        ];
         descriptor
     }
 }
@@ -244,43 +247,37 @@ type DrawMaterial = (
 );
 
 pub struct SetPolylineViewBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetPolylineViewBindGroup<I> {
-    type Param = SQuery<(
-        Read<ViewUniformOffset>,
-        //Read<ViewLightsUniformOffset>,
-        Read<PolylineViewBindGroup>,
-    )>;
+impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetPolylineViewBindGroup<I> {
+    type ViewWorldQuery = (Read<ViewUniformOffset>, Read<PolylineViewBindGroup>);
+    type ItemWorldQuery = ();
+    type Param = ();
+
     #[inline]
     fn render<'w>(
-        view: Entity,
-        _item: Entity,
-        view_query: SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        (view_uniform, mesh_view_bind_group): ROQueryItem<'w, Self::ViewWorldQuery>,
+        _entity: ROQueryItem<'w, Self::ItemWorldQuery>,
+        _param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let (view_uniform, mesh_view_bind_group) = view_query.get_inner(view).unwrap();
-        pass.set_bind_group(
-            I,
-            &mesh_view_bind_group.value,
-            &[view_uniform.offset], //, view_lights.offset],
-        );
-
+        pass.set_bind_group(I, &mesh_view_bind_group.value, &[view_uniform.offset]);
         RenderCommandResult::Success
     }
 }
 
 pub struct SetMaterialBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetMaterialBindGroup<I> {
-    type Param = (
-        SRes<RenderAssets<PolylineMaterial>>,
-        SQuery<Read<Handle<PolylineMaterial>>>,
-    );
+impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetMaterialBindGroup<I> {
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<Handle<PolylineMaterial>>;
+    type Param = SRes<RenderAssets<PolylineMaterial>>;
+
     fn render<'w>(
-        _view: Entity,
-        item: Entity,
-        (materials, query): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        _view: ROQueryItem<'w, Self::ViewWorldQuery>,
+        material_handle: ROQueryItem<'w, Self::ItemWorldQuery>,
+        materials: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let material_handle = query.get(item).unwrap();
         let material = materials.into_inner().get(material_handle).unwrap();
         pass.set_bind_group(
             I,
@@ -298,7 +295,7 @@ pub fn queue_material_polylines(
     transparent_draw_functions: Res<DrawFunctions<Transparent3d>>,
     material_pipeline: Res<PolylineMaterialPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<PolylineMaterialPipeline>>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     render_materials: Res<RenderAssets<PolylineMaterial>>,
     material_meshes: Query<(&Handle<PolylineMaterial>, &PolylineUniform)>,
@@ -329,7 +326,7 @@ pub fn queue_material_polylines(
         let inverse_view_matrix = view.transform.compute_matrix().inverse();
         let inverse_view_row_2 = inverse_view_matrix.row(2);
 
-        let mut polyline_key = PolylinePipelineKey::from_msaa_samples(msaa.samples);
+        let mut polyline_key = PolylinePipelineKey::from_msaa_samples(msaa.samples());
         polyline_key |= PolylinePipelineKey::from_hdr(view.hdr);
 
         for visible_entity in &visible_entities.entities {
@@ -342,7 +339,7 @@ pub fn queue_material_polylines(
                         polyline_key |= PolylinePipelineKey::PERSPECTIVE
                     }
                     let pipeline_id =
-                        pipelines.specialize(&mut pipeline_cache, &material_pipeline, polyline_key);
+                        pipelines.specialize(&pipeline_cache, &material_pipeline, polyline_key);
 
                     // NOTE: row 2 of the inverse view matrix dotted with column 3 of the model matrix
                     // gives the z component of translation of the mesh in view space
@@ -372,7 +369,10 @@ pub fn queue_material_polylines(
                                 distance: -polyline_z,
                             });
                         }
-                        AlphaMode::Blend => {
+                        AlphaMode::Blend
+                        | AlphaMode::Premultiplied
+                        | AlphaMode::Add
+                        | AlphaMode::Multiply => {
                             transparent_phase.add(Transparent3d {
                                 entity: *visible_entity,
                                 draw_function: draw_transparent,

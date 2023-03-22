@@ -17,15 +17,14 @@ fn setup(
     commands.spawn(PolylineBundle {
         polyline: polylines.add(Polyline {
             vertices: vec![-Vec3::ONE, Vec3::ONE],
-            ..Default::default()
         }),
         material: polyline_materials.add(PolylineMaterial {
             width: 10.0,
             color: Color::RED,
             perspective: false,
-            ..Default::default()
+            ..default()
         }),
-        ..Default::default()
+        ..default()
     });
 
     // camera
@@ -35,6 +34,6 @@ fn setup(
             hdr: true,
             ..default()
         },
-        ..Camera3dBundle::default()
+        ..default()
     });
 }

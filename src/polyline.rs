@@ -1,9 +1,12 @@
 use crate::{material::PolylineMaterial, SHADER_HANDLE};
 use bevy::{
     core::cast_slice,
-    ecs::system::{
-        lifetimeless::{Read, SQuery, SRes},
-        SystemParamItem,
+    ecs::{
+        query::ROQueryItem,
+        system::{
+            lifetimeless::{Read, SRes},
+            SystemParamItem,
+        },
     },
     pbr::{GlobalLightMeta, LightMeta, ViewClusterBindings, ViewShadowBindings},
     prelude::*,
@@ -11,12 +14,12 @@ use bevy::{
     render::{
         extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
         render_asset::{RenderAsset, RenderAssetPlugin, RenderAssets},
-        render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
+        render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
         render_resource::*,
         renderer::RenderDevice,
         texture::BevyDefault,
         view::{ViewUniform, ViewUniforms},
-        Extract, RenderApp, RenderStage,
+        Extract, RenderApp, RenderSet,
     },
 };
 
@@ -35,9 +38,9 @@ impl Plugin for PolylineRenderPlugin {
         app.add_plugin(UniformComponentPlugin::<PolylineUniform>::default());
         app.sub_app_mut(RenderApp)
             .init_resource::<PolylinePipeline>()
-            .add_system_to_stage(RenderStage::Extract, extract_polylines)
-            .add_system_to_stage(RenderStage::Queue, queue_polyline_bind_group)
-            .add_system_to_stage(RenderStage::Queue, queue_polyline_view_bind_groups);
+            .add_system(extract_polylines.in_schedule(ExtractSchedule))
+            .add_system(queue_polyline_bind_group.in_set(RenderSet::Queue))
+            .add_system(queue_polyline_view_bind_groups.in_set(RenderSet::Queue));
     }
 }
 
@@ -250,7 +253,7 @@ impl SpecializedRenderPipeline for PolylinePipeline {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            layout: None, // This is set in `PolylineMaterialPipeline::specialize()`
+            layout: vec![], // This is set in `PolylineMaterialPipeline::specialize()`
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
@@ -282,6 +285,7 @@ impl SpecializedRenderPipeline for PolylinePipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some(label),
+            push_constant_ranges: vec![],
         }
     }
 }
@@ -433,39 +437,39 @@ pub fn queue_polyline_view_bind_groups(
 }
 
 pub struct SetPolylineBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetPolylineBindGroup<I> {
-    type Param = (
-        SRes<PolylineBindGroup>,
-        SQuery<Read<DynamicUniformIndex<PolylineUniform>>>,
-    );
+impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetPolylineBindGroup<I> {
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<DynamicUniformIndex<PolylineUniform>>;
+    type Param = SRes<PolylineBindGroup>;
+
     #[inline]
     fn render<'w>(
-        _view: Entity,
-        item: Entity,
-        (polyline_bind_group, polyline_query): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        _view: ROQueryItem<'w, Self::ViewWorldQuery>,
+        polyline_index: ROQueryItem<'w, Self::ItemWorldQuery>,
+        bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let polyline_index = polyline_query.get(item).unwrap();
-        pass.set_bind_group(
-            I,
-            &polyline_bind_group.into_inner().value,
-            &[polyline_index.index()],
-        );
+        pass.set_bind_group(I, &bind_group.into_inner().value, &[polyline_index.index()]);
         RenderCommandResult::Success
     }
 }
 
 pub struct DrawPolyline;
-impl EntityRenderCommand for DrawPolyline {
-    type Param = (SRes<RenderAssets<Polyline>>, SQuery<Read<Handle<Polyline>>>);
+impl<P: PhaseItem> RenderCommand<P> for DrawPolyline {
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<Handle<Polyline>>;
+    type Param = SRes<RenderAssets<Polyline>>;
+
     #[inline]
     fn render<'w>(
-        _view: Entity,
-        item: Entity,
-        (polylines, pl_query): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        _view: ROQueryItem<'w, Self::ViewWorldQuery>,
+        entity: ROQueryItem<'w, Self::ItemWorldQuery>,
+        polylines: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let pl_handle = pl_query.get(item).unwrap();
+        let pl_handle = entity;
         if let Some(gpu_polyline) = polylines.into_inner().get(pl_handle) {
             pass.set_vertex_buffer(0, gpu_polyline.vertex_buffer.slice(..));
             let num_instances = gpu_polyline.vertex_count.max(1) - 1;

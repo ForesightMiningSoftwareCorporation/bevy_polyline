@@ -21,7 +21,7 @@ use bevy_polyline::prelude::*;
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
-        .insert_resource(Msaa { samples: 4 })
+        .insert_resource(Msaa::Sample4)
         .add_plugins(DefaultPlugins)
         .add_plugin(PolylinePlugin)
         .add_system(move_camera)
@@ -84,7 +84,6 @@ fn setup(
             color: Color::RED,
             depth_bias: -1.0,
             perspective: false,
-            ..Default::default()
         }),
         ..Default::default()
     });
@@ -102,7 +101,6 @@ fn setup(
                 color: Color::hsl((bias + 1.0) / 2.0 * 270.0, 1.0, 0.5),
                 depth_bias: bias,
                 perspective: false,
-                ..Default::default()
             }),
             ..Default::default()
         });
