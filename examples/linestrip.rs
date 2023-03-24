@@ -3,7 +3,7 @@ use bevy_polyline::prelude::*;
 
 fn main() {
     App::new()
-        .insert_resource(Msaa { samples: 4 })
+        .insert_resource(Msaa::Sample4)
         .add_plugins(DefaultPlugins)
         .add_plugin(PolylinePlugin)
         .add_startup_system(setup)
@@ -30,7 +30,6 @@ fn setup(
                 Vec3::new(0.5, -0.5, 0.5),
                 Vec3::new(-0.5, -0.5, 0.5),
             ],
-            ..Default::default()
         }),
         material: polyline_materials.add(PolylineMaterial {
             width: 2.0,
@@ -38,13 +37,12 @@ fn setup(
             perspective: false,
             // Bias the line toward the camera so the line at the cube-plane intersection is visible
             depth_bias: -0.0002,
-            ..Default::default()
         }),
         ..Default::default()
     });
 
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
+        mesh: meshes.add(Mesh::from(shape::Plane::from_size(5.0))),
         material: standard_materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         transform: Transform::from_xyz(0.0, -0.5, 0.0),
         ..Default::default()
