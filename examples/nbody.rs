@@ -4,7 +4,6 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::Vec3A,
     prelude::*,
-    window::PresentMode,
 };
 use bevy_polyline::prelude::*;
 
@@ -21,18 +20,10 @@ fn main() {
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(Msaa::Sample4)
         .insert_resource(Simulation {
-            scale: 1e5,
+            scale: 1e6,
             ..Default::default()
         })
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                resolution: (1920.0, 1080.0).into(),
-                resizable: false,
-                present_mode: PresentMode::Immediate,
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
         .add_plugin(PolylinePlugin)
         .add_startup_system(setup)
         .add_system(nbody_system)
@@ -62,7 +53,7 @@ fn setup(
             Body {
                 mass: size,
                 position,
-                velocity: position.cross(Vec3A::Y).normalize() * 0.00019,
+                velocity: position.cross(Vec3A::Y).normalize() * 0.00010,
                 ..Default::default()
             },
             Trail(ConstGenericRingBuffer::<Vec3A, TRAIL_LENGTH>::new()),
@@ -72,7 +63,7 @@ fn setup(
                 }),
                 material: polyline_materials.add(PolylineMaterial {
                     width: (size * 0.1).powf(1.8),
-                    color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, rng.gen_range(0.4..2.0)),
+                    color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, rng.gen_range(1.2..3.0)),
                     perspective: true,
                     ..Default::default()
                 }),
@@ -88,12 +79,10 @@ fn setup(
                 hdr: true,
                 ..default()
             },
+            tonemapping: bevy::core_pipeline::tonemapping::Tonemapping::TonyMcMapface,
             ..default()
         },
-        bevy::core_pipeline::bloom::BloomSettings {
-            intensity: 0.1,
-            ..default()
-        },
+        bevy::core_pipeline::bloom::BloomSettings { ..default() },
         Rotates,
     ));
 }
