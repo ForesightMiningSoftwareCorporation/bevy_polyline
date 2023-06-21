@@ -38,9 +38,11 @@ impl Plugin for PolylineRenderPlugin {
         app.add_plugin(UniformComponentPlugin::<PolylineUniform>::default());
         app.sub_app_mut(RenderApp)
             .init_resource::<PolylinePipeline>()
-            .add_system(extract_polylines.in_schedule(ExtractSchedule))
-            .add_system(queue_polyline_bind_group.in_set(RenderSet::Queue))
-            .add_system(queue_polyline_view_bind_groups.in_set(RenderSet::Queue));
+            .add_systems((
+                extract_polylines.in_schedule(ExtractSchedule),
+                queue_polyline_bind_group.in_set(RenderSet::Queue),
+                queue_polyline_view_bind_groups.in_set(RenderSet::Queue),
+            ));
     }
 }
 
@@ -465,11 +467,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawPolyline {
     fn render<'w>(
         _item: &P,
         _view: ROQueryItem<'w, Self::ViewWorldQuery>,
-        entity: ROQueryItem<'w, Self::ItemWorldQuery>,
+        pl_handle: ROQueryItem<'w, Self::ItemWorldQuery>,
         polylines: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let pl_handle = entity;
         if let Some(gpu_polyline) = polylines.into_inner().get(pl_handle) {
             pass.set_vertex_buffer(0, gpu_polyline.vertex_buffer.slice(..));
             let num_instances = gpu_polyline.vertex_count.max(1) - 1;
