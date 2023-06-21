@@ -68,10 +68,10 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     var color = material.color;
 
     #ifdef POLYLINE_PERSPECTIVE
-        line_width = line_width / clip.w;
+        line_width /= clip.w;
             // Line thinness fade from https://acegikmo.com/shapes/docs/#anti-aliasing
-        if (line_width < 1.0) {
-            color.a = color.a * line_width;
+        if (line_width > 0.0 && line_width < 1.0) {
+            color.a *= line_width;
             line_width = 1.0;
         }
     #endif
