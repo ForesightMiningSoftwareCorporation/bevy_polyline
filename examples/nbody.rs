@@ -24,13 +24,14 @@ fn main() {
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
-        .add_plugin(PolylinePlugin)
-        .add_startup_system(setup)
-        .add_system(nbody_system)
-        .add_system(update_trails.after(nbody_system))
-        .add_system(rotator_system)
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugin(LogDiagnosticsPlugin::default())
+        .add_plugins(PolylinePlugin)
+        .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            ((nbody_system, update_trails).chain(), rotator_system),
+        )
+        .add_plugins(FrameTimeDiagnosticsPlugin::default())
+        .add_plugins(LogDiagnosticsPlugin::default())
         .run();
 }
 

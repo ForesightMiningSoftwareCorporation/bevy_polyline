@@ -24,10 +24,12 @@ impl Plugin for PolylinePlugin {
         let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
         shaders.set_untracked(
             SHADER_HANDLE,
-            Shader::from_wgsl(include_str!("shaders/polyline.wgsl")),
+            Shader::from_wgsl(include_str!("shaders/polyline.wgsl"), file!()),
         );
-        app.add_plugin(PolylineBasePlugin)
-            .add_plugin(PolylineRenderPlugin)
-            .add_plugin(PolylineMaterialPlugin);
+        app.add_plugins((
+            PolylineBasePlugin,
+            PolylineRenderPlugin,
+            PolylineMaterialPlugin,
+        ));
     }
 }

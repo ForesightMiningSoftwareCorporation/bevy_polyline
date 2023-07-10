@@ -23,10 +23,9 @@ fn main() {
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(Msaa::Sample4)
         .add_plugins(DefaultPlugins)
-        .add_plugin(PolylinePlugin)
-        .add_system(move_camera)
-        .add_system(rotate_plane)
-        .add_startup_system(setup)
+        .add_plugins(PolylinePlugin)
+        .add_systems(Update, (move_camera, rotate_plane))
+        .add_systems(Startup, setup)
         .run();
 }
 

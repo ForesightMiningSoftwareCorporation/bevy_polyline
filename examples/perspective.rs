@@ -4,9 +4,9 @@ use bevy_polyline::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(PolylinePlugin)
-        .add_startup_system(setup)
-        .add_systems((move_camera, toggle_perspective))
+        .add_plugins(PolylinePlugin)
+        .add_systems(Startup, setup)
+        .add_systems(Update, (move_camera, toggle_perspective))
         .run();
 }
 

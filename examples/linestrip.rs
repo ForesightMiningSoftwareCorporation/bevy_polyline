@@ -5,9 +5,9 @@ fn main() {
     App::new()
         .insert_resource(Msaa::Sample4)
         .add_plugins(DefaultPlugins)
-        .add_plugin(PolylinePlugin)
-        .add_startup_system(setup)
-        .add_system(rotator_system)
+        .add_plugins(PolylinePlugin)
+        .add_systems(Startup, setup)
+        .add_systems(Update, rotator_system)
         .run();
 }
 
