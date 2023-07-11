@@ -21,7 +21,6 @@ bitflags = "2.3"
 bevy = { version = "0.11.0", default-features = false, features = [
     "bevy_core_pipeline",
     "bevy_render",
-    "bevy_pbr",
     "bevy_asset",
 ] }
 
@@ -35,6 +34,7 @@ rand = "0.8.4"
 ringbuffer = "0.14"
 bevy = { version = "0.11.0", default-features = false, features = [
     "bevy_winit",
+    "bevy_pbr",
     "x11",
     "tonemapping_luts",
     "ktx2",
