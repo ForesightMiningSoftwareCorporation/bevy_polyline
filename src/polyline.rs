@@ -10,7 +10,7 @@ use bevy::{
     },
     pbr::{GlobalLightMeta, LightMeta, ViewClusterBindings, ViewShadowBindings},
     prelude::*,
-    reflect::TypeUuid,
+    reflect::{TypePath, TypeUuid},
     render::{
         extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
         render_asset::{RenderAsset, RenderAssetPlugin, RenderAssets},
@@ -19,7 +19,7 @@ use bevy::{
         renderer::RenderDevice,
         texture::BevyDefault,
         view::{ViewUniform, ViewUniforms},
-        Extract, RenderApp, RenderSet,
+        Extract, Render, RenderApp, RenderSet,
     },
 };
 
@@ -28,21 +28,27 @@ pub struct PolylineBasePlugin;
 impl Plugin for PolylineBasePlugin {
     fn build(&self, app: &mut App) {
         app.add_asset::<Polyline>()
-            .add_plugin(RenderAssetPlugin::<Polyline>::default());
+            .add_plugins(RenderAssetPlugin::<Polyline>::default());
     }
 }
 
 pub struct PolylineRenderPlugin;
 impl Plugin for PolylineRenderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(UniformComponentPlugin::<PolylineUniform>::default());
+        app.add_plugins(UniformComponentPlugin::<PolylineUniform>::default());
+    }
+
+    fn finish(&self, app: &mut App) {
         app.sub_app_mut(RenderApp)
             .init_resource::<PolylinePipeline>()
-            .add_systems((
-                extract_polylines.in_schedule(ExtractSchedule),
-                queue_polyline_bind_group.in_set(RenderSet::Queue),
-                queue_polyline_view_bind_groups.in_set(RenderSet::Queue),
-            ));
+            .add_systems(ExtractSchedule, extract_polylines)
+            .add_systems(
+                Render,
+                (
+                    queue_polyline_bind_group.in_set(RenderSet::Queue),
+                    queue_polyline_view_bind_groups.in_set(RenderSet::Queue),
+                ),
+            );
     }
 }
 
@@ -58,7 +64,7 @@ pub struct PolylineBundle {
     pub computed_visibility: ComputedVisibility,
 }
 
-#[derive(Debug, Default, Component, Clone, TypeUuid)]
+#[derive(Debug, Default, Component, Clone, TypeUuid, TypePath)]
 #[uuid = "c76af88a-8afe-405c-9a64-0a7d845d2546"]
 pub struct Polyline {
     pub vertices: Vec<Vec3>,

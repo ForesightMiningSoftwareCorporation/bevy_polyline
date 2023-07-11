@@ -15,7 +15,7 @@ use bevy::{
         },
     },
     prelude::*,
-    reflect::TypeUuid,
+    reflect::{TypePath, TypeUuid},
     render::{
         extract_component::ExtractComponentPlugin,
         render_asset::{RenderAsset, RenderAssetPlugin, RenderAssets},
@@ -23,12 +23,12 @@ use bevy::{
         render_resource::*,
         renderer::{RenderDevice, RenderQueue},
         view::{ExtractedView, ViewUniformOffset, VisibleEntities},
-        RenderApp, RenderSet,
+        Render, RenderApp, RenderSet,
     },
 };
 use std::fmt::Debug;
 
-#[derive(Component, Debug, PartialEq, Clone, Copy, TypeUuid)]
+#[derive(Component, Debug, PartialEq, Clone, Copy, TypeUuid, TypePath)]
 #[uuid = "69b87497-2ba0-4c38-ba82-f54bf1ffe873"]
 pub struct PolylineMaterial {
     /// Width of the line.
@@ -183,8 +183,11 @@ pub struct PolylineMaterialPlugin;
 impl Plugin for PolylineMaterialPlugin {
     fn build(&self, app: &mut App) {
         app.add_asset::<PolylineMaterial>()
-            .add_plugin(ExtractComponentPlugin::<Handle<PolylineMaterial>>::default())
-            .add_plugin(RenderAssetPlugin::<PolylineMaterial>::default());
+            .add_plugins(ExtractComponentPlugin::<Handle<PolylineMaterial>>::default())
+            .add_plugins(RenderAssetPlugin::<PolylineMaterial>::default());
+    }
+
+    fn finish(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<Transparent3d, DrawMaterial>()
@@ -192,7 +195,7 @@ impl Plugin for PolylineMaterialPlugin {
                 .add_render_command::<AlphaMask3d, DrawMaterial>()
                 .init_resource::<PolylineMaterialPipeline>()
                 .init_resource::<SpecializedRenderPipelines<PolylineMaterialPipeline>>()
-                .add_system(queue_material_polylines.in_set(RenderSet::Queue));
+                .add_systems(Render, queue_material_polylines.in_set(RenderSet::Queue));
         }
     }
 }
