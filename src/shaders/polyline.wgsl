@@ -86,7 +86,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
         depth = depth * exp2(-material.depth_bias * log2(clip.w / depth - epsilon));
     }
 
-    return VertexOutput(vec4(clip.w * ((2.0 * pt) / resolution - 1.0), clip.z, clip.w), color);
+    return VertexOutput(vec4(clip.w * ((2.0 * pt) / resolution - 1.0), depth, clip.w), color);
 }
 
 struct FragmentInput {
