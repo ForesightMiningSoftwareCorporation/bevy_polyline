@@ -8,7 +8,6 @@ use bevy::{
             SystemParamItem,
         },
     },
-    pbr::{GlobalLightMeta, LightMeta, ViewClusterBindings, ViewShadowBindings},
     prelude::*,
     reflect::{TypePath, TypeUuid},
     render::{
@@ -300,6 +299,7 @@ impl SpecializedRenderPipeline for PolylinePipeline {
 
 bitflags::bitflags! {
     #[repr(transparent)]
+    #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Copy)]
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
     // MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct PolylinePipelineKey: u32 {
@@ -318,11 +318,11 @@ impl PolylinePipelineKey {
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
             (msaa_samples.trailing_zeros() & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
-        Self::from_bits(msaa_bits).unwrap()
+        Self::from_bits_retain(msaa_bits)
     }
 
     pub fn msaa_samples(&self) -> u32 {
-        1 << ((self.bits >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
+        1 << ((self.bits() >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
     }
 
     pub fn from_hdr(hdr: bool) -> Self {
@@ -369,70 +369,16 @@ pub fn queue_polyline_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     polyline_pipeline: Res<PolylinePipeline>,
-    light_meta: Res<LightMeta>,
-    global_light_meta: Res<GlobalLightMeta>,
     view_uniforms: Res<ViewUniforms>,
-    views: Query<(Entity, &ViewShadowBindings, &ViewClusterBindings)>,
+    views: Query<Entity, With<bevy::render::view::ExtractedView>>,
 ) {
-    if let (Some(view_binding), Some(_light_binding), Some(_point_light_binding)) = (
-        view_uniforms.uniforms.binding(),
-        light_meta.view_gpu_lights.binding(),
-        global_light_meta.gpu_point_lights.binding(),
-    ) {
-        for (entity, _view_shadow_bindings, _view_cluster_bindings) in views.iter() {
+    if let Some(view_binding) = view_uniforms.uniforms.binding() {
+        for entity in views.iter() {
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: view_binding.clone(),
-                    },
-                    /* Can add these bindings in the future if needed
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: light_binding.clone(),
-                    },
-                    BindGroupEntry {
-                        binding: 2,
-                        resource: BindingResource::TextureView(
-                            &view_shadow_bindings.point_light_depth_texture_view,
-                        ),
-                    },
-                    BindGroupEntry {
-                        binding: 3,
-                        resource: BindingResource::Sampler(&shadow_pipeline.point_light_sampler),
-                    },
-                    BindGroupEntry {
-                        binding: 4,
-                        resource: BindingResource::TextureView(
-                            &view_shadow_bindings.directional_light_depth_texture_view,
-                        ),
-                    },
-                    BindGroupEntry {
-                        binding: 5,
-                        resource: BindingResource::Sampler(
-                            &shadow_pipeline.directional_light_sampler,
-                        ),
-                    },
-                    BindGroupEntry {
-                        binding: 6,
-                        resource: point_light_binding.clone(),
-                    },
-                    BindGroupEntry {
-                        binding: 7,
-                        resource: view_cluster_bindings
-                            .cluster_light_index_lists
-                            .binding()
-                            .unwrap(),
-                    },
-                    BindGroupEntry {
-                        binding: 8,
-                        resource: view_cluster_bindings
-                            .cluster_offsets_and_counts
-                            .binding()
-                            .unwrap(),
-                    },
-                    */
-                ],
+                entries: &[BindGroupEntry {
+                    binding: 0,
+                    resource: view_binding.clone(),
+                }],
                 label: Some("polyline_view_bind_group"),
                 layout: &polyline_pipeline.view_layout,
             });
