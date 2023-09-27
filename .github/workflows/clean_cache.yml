@@ -1,0 +1,10 @@
+name: Removed unneeded cache once a pr is closed
+on:
+  pull_request:
+    types:
+      - closed
+
+jobs:
+  clean-cache:
+    uses: ForesightMiningSoftwareCorporation/github/.github/workflows/clear-cache-closed-pr.yml@v1
+    secrets: inherit
