@@ -1,5 +1,6 @@
 use std::f32::consts::TAU;
 use std::f64::consts::TAU as TAU64;
+use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 
 use bevy::prelude::*;
 use bevy_polyline::prelude::*;
@@ -23,6 +24,8 @@ fn main() {
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(Msaa::Sample4)
         .add_plugins(DefaultPlugins)
+        .add_plugins(FrameTimeDiagnosticsPlugin::default())
+        .add_plugins(LogDiagnosticsPlugin::default())
         .add_plugins(PolylinePlugin)
         .add_systems(Update, (move_camera, rotate_plane))
         .add_systems(Startup, setup)

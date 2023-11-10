@@ -9,7 +9,7 @@ use bevy::{
         },
     },
     prelude::*,
-    reflect::{TypePath, TypeUuid},
+    reflect::{TypePath},
     render::{
         extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
         render_asset::{RenderAsset, RenderAssetPlugin, RenderAssets},
@@ -21,33 +21,40 @@ use bevy::{
         Extract, Render, RenderApp, RenderSet,
     },
 };
-
-pub struct PolylineBasePlugin;
-
-impl Plugin for PolylineBasePlugin {
-    fn build(&self, app: &mut App) {
-        app.add_asset::<Polyline>()
-            .add_plugins(RenderAssetPlugin::<Polyline>::default());
-    }
-}
+use bevy::asset::{load_internal_asset, UntypedAssetId, VisitAssetDependencies};
 
 pub struct PolylineRenderPlugin;
+
 impl Plugin for PolylineRenderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(UniformComponentPlugin::<PolylineUniform>::default());
-    }
+        load_internal_asset!(app, SHADER_HANDLE, "shaders/polyline.wgsl", Shader::from_wgsl);
 
-    fn finish(&self, app: &mut App) {
-        app.sub_app_mut(RenderApp)
-            .init_resource::<PolylinePipeline>()
+        app
+            .add_plugins(UniformComponentPlugin::<PolylineUniform>::default())
+            .init_asset::<Polyline>()
+            .add_plugins(RenderAssetPlugin::<Polyline>::default());
+
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app
             .add_systems(ExtractSchedule, extract_polylines)
             .add_systems(
                 Render,
                 (
-                    queue_polyline_bind_group.in_set(RenderSet::Queue),
-                    queue_polyline_view_bind_groups.in_set(RenderSet::Queue),
+                    prepare_polyline_bind_group.in_set(RenderSet::PrepareBindGroups),
+                    prepare_polyline_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
                 ),
             );
+    }
+
+    fn finish(&self, app: &mut App) {
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app.init_resource::<PolylinePipeline>();
     }
 }
 
@@ -60,13 +67,21 @@ pub struct PolylineBundle {
     /// User indication of whether an entity is visible
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub computed_visibility: ComputedVisibility,
+    pub inherited_visibility: InheritedVisibility,
+    pub view_visibility: ViewVisibility,
 }
 
-#[derive(Debug, Default, Component, Clone, TypeUuid, TypePath)]
-#[uuid = "c76af88a-8afe-405c-9a64-0a7d845d2546"]
+#[derive(Component, Debug, Default, Clone, TypePath)]
 pub struct Polyline {
     pub vertices: Vec<Vec3>,
+}
+
+impl Asset for Polyline {}
+
+impl VisitAssetDependencies for Polyline {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        unreachable!()
+    }
 }
 
 impl RenderAsset for Polyline {
@@ -82,17 +97,18 @@ impl RenderAsset for Polyline {
 
     fn prepare_asset(
         polyline: Self::ExtractedAsset,
-        render_device: &mut bevy::ecs::system::SystemParamItem<Self::Param>,
+        render_device: &mut SystemParamItem<Self::Param>,
     ) -> Result<
         Self::PreparedAsset,
         bevy::render::render_asset::PrepareAssetError<Self::ExtractedAsset>,
     > {
-        let vertex_buffer_data = cast_slice(polyline.vertices.as_slice());
-        let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
-            usage: BufferUsages::VERTEX,
-            label: Some("Polyline Vertex Buffer"),
-            contents: vertex_buffer_data,
-        });
+        let vertex_buffer_data = cast_slice(&polyline.vertices);
+        let vertex_buffer = render_device.create_buffer_with_data(
+            &BufferInitDescriptor {
+                usage: BufferUsages::VERTEX,
+                label: Some("Polyline Vertex Buffer"),
+                contents: vertex_buffer_data,
+            });
 
         Ok(GpuPolyline {
             vertex_buffer,
@@ -101,10 +117,9 @@ impl RenderAsset for Polyline {
     }
 }
 
-#[derive(Component, Clone, ShaderType)]
+#[derive(Component, ShaderType, Clone, Copy)]
 pub struct PolylineUniform {
     pub transform: Mat4,
-    //pub inverse_transpose_model: Mat4,
 }
 
 /// The GPU-representation of a [`Polyline`]
@@ -120,15 +135,15 @@ pub fn extract_polylines(
     query: Extract<
         Query<(
             Entity,
-            &ComputedVisibility,
+            &ViewVisibility,
             &GlobalTransform,
             &Handle<Polyline>,
         )>,
     >,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    for (entity, computed_visibility, transform, handle) in query.iter() {
-        if !computed_visibility.is_visible() {
+    for (entity, visibility, transform, handle) in query.iter() {
+        if !visibility.get() {
             continue;
         }
         let transform = transform.compute_matrix();
@@ -138,7 +153,6 @@ pub fn extract_polylines(
                 handle.clone_weak(),
                 PolylineUniform {
                     transform,
-                    //inverse_transpose_model: transform.inverse().transpose(),
                 },
             ),
         ));
@@ -241,7 +255,7 @@ impl SpecializedRenderPipeline for PolylinePipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: SHADER_HANDLE.typed::<Shader>(),
+                shader: SHADER_HANDLE,
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![VertexBufferLayout {
@@ -251,7 +265,7 @@ impl SpecializedRenderPipeline for PolylinePipeline {
                 }],
             },
             fragment: Some(FragmentState {
-                shader: SHADER_HANDLE.typed::<Shader>(),
+                shader: SHADER_HANDLE,
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -339,7 +353,7 @@ pub struct PolylineBindGroup {
     pub value: BindGroup,
 }
 
-pub fn queue_polyline_bind_group(
+pub fn prepare_polyline_bind_group(
     mut commands: Commands,
     polyline_pipeline: Res<PolylinePipeline>,
     render_device: Res<RenderDevice>,
@@ -347,14 +361,11 @@ pub fn queue_polyline_bind_group(
 ) {
     if let Some(binding) = polyline_uniforms.uniforms().binding() {
         commands.insert_resource(PolylineBindGroup {
-            value: render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: binding,
-                }],
-                label: Some("polyline_bind_group"),
-                layout: &polyline_pipeline.polyline_layout,
-            }),
+            value: render_device.create_bind_group(
+                "polyline_bind_group",
+                &polyline_pipeline.polyline_layout,
+                &BindGroupEntries::single(binding),
+            ),
         });
     }
 }
@@ -365,7 +376,7 @@ pub struct PolylineViewBindGroup {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn queue_polyline_view_bind_groups(
+pub fn prepare_polyline_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     polyline_pipeline: Res<PolylinePipeline>,
@@ -374,14 +385,11 @@ pub fn queue_polyline_view_bind_groups(
 ) {
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
         for entity in views.iter() {
-            let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: view_binding.clone(),
-                }],
-                label: Some("polyline_view_bind_group"),
-                layout: &polyline_pipeline.view_layout,
-            });
+            let view_bind_group = render_device.create_bind_group(
+                "polyline_view_bind_group",
+                &polyline_pipeline.view_layout,
+                &BindGroupEntries::single(view_binding.clone()),
+            );
 
             commands.entity(entity).insert(PolylineViewBindGroup {
                 value: view_bind_group,
@@ -391,10 +399,11 @@ pub fn queue_polyline_view_bind_groups(
 }
 
 pub struct SetPolylineBindGroup<const I: usize>;
+
 impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetPolylineBindGroup<I> {
+    type Param = SRes<PolylineBindGroup>;
     type ViewWorldQuery = ();
     type ItemWorldQuery = Read<DynamicUniformIndex<PolylineUniform>>;
-    type Param = SRes<PolylineBindGroup>;
 
     #[inline]
     fn render<'w>(
@@ -410,10 +419,11 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetPolylineBindGroup<I> 
 }
 
 pub struct DrawPolyline;
+
 impl<P: PhaseItem> RenderCommand<P> for DrawPolyline {
+    type Param = SRes<RenderAssets<Polyline>>;
     type ViewWorldQuery = ();
     type ItemWorldQuery = Read<Handle<Polyline>>;
-    type Param = SRes<RenderAssets<Polyline>>;
 
     #[inline]
     fn render<'w>(

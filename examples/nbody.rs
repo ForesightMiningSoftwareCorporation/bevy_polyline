@@ -5,13 +5,14 @@ use bevy::{
     math::Vec3A,
     prelude::*,
 };
+use bevy::window::PresentMode;
 use bevy_polyline::prelude::*;
 
 use lazy_static::*;
 use rand::{prelude::*, Rng};
-use ringbuffer::{ConstGenericRingBuffer, RingBufferExt, RingBufferWrite};
+use ringbuffer::{ConstGenericRingBuffer, RingBuffer};
 
-const NUM_BODIES: usize = 512;
+const NUM_BODIES: usize = 6;
 const TRAIL_LENGTH: usize = 1024;
 const MINIMUM_ANGLE: f32 = 1.483_418_7; // == acos(5 degrees)
 
@@ -23,7 +24,14 @@ fn main() {
             scale: 1e6,
             ..Default::default()
         })
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Proc Gen".into(),
+                present_mode: PresentMode::AutoNoVsync,
+                ..default()
+            }),
+            ..default()
+        }))
         .add_plugins(PolylinePlugin)
         .add_systems(Startup, setup)
         .add_systems(
@@ -101,7 +109,7 @@ fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Rotates
             (t * 0.1).sin() * 2000.0,
             r * f32::sin(t * 0.1),
         )
-        .looking_at(Vec3::ZERO, Vec3::Y);
+            .looking_at(Vec3::ZERO, Vec3::Y);
     }
 }
 
@@ -147,6 +155,7 @@ impl Simulation {
         None
     }
 }
+
 #[derive(Component, Clone, Default, Debug)]
 struct Trail(ConstGenericRingBuffer<Vec3A, TRAIL_LENGTH>);
 
@@ -208,7 +217,7 @@ fn update_trails(
     query.for_each_mut(|(body, mut trail, polyline)| {
         if let Some(position) = trail.0.back() {
             let last_vec = *position - body.position;
-            let last_last_vec = if let Some(position) = trail.0.get(-2) {
+            let last_last_vec = if let Some(position) = trail.0.get_signed(-2) {
                 *position - body.position
             } else {
                 last_vec
@@ -221,7 +230,7 @@ fn update_trails(
             } else {
                 // If the last point didn't actually add much of a curve, just overwrite it.
                 if polylines.get_mut(polyline).unwrap().vertices.len() > 1 {
-                    *trail.0.get_mut(-1).unwrap() = body.position;
+                    *trail.0.get_mut_signed(-1).unwrap() = body.position;
                     *polylines
                         .get_mut(polyline)
                         .unwrap()

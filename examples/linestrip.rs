@@ -1,10 +1,13 @@
 use bevy::{pbr::PointLightBundle, prelude::*};
+use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy_polyline::prelude::*;
 
 fn main() {
     App::new()
         .insert_resource(Msaa::Sample4)
         .add_plugins(DefaultPlugins)
+        .add_plugins(FrameTimeDiagnosticsPlugin::default())
+        .add_plugins(LogDiagnosticsPlugin::default())
         .add_plugins(PolylinePlugin)
         .add_systems(Startup, setup)
         .add_systems(Update, rotator_system)

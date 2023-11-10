@@ -28,8 +28,7 @@ use bevy::{
 };
 use std::fmt::Debug;
 
-#[derive(Component, Debug, PartialEq, Clone, Copy, TypeUuid, TypePath)]
-#[uuid = "69b87497-2ba0-4c38-ba82-f54bf1ffe873"]
+#[derive(Asset, Debug, PartialEq, Clone, Copy, TypePath)]
 pub struct PolylineMaterial {
     /// Width of the line.
     ///
@@ -74,11 +73,11 @@ impl Default for PolylineMaterial {
 
 impl PolylineMaterial {
     fn fragment_shader() -> Handle<Shader> {
-        SHADER_HANDLE.typed()
+        SHADER_HANDLE
     }
 
     fn vertex_shader() -> Handle<Shader> {
-        SHADER_HANDLE.typed()
+        SHADER_HANDLE
     }
 
     pub fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout {
@@ -138,7 +137,7 @@ impl RenderAsset for PolylineMaterial {
 
     fn prepare_asset(
         material: Self::ExtractedAsset,
-        (device, queue, polyline_pipeline): &mut bevy::ecs::system::SystemParamItem<Self::Param>,
+        (device, queue, polyline_pipeline): &mut SystemParamItem<Self::Param>,
     ) -> Result<
         Self::PreparedAsset,
         bevy::render::render_asset::PrepareAssetError<Self::ExtractedAsset>,
@@ -152,27 +151,28 @@ impl RenderAsset for PolylineMaterial {
         let mut buffer = UniformBuffer::from(value);
         buffer.write_buffer(device, queue);
 
-        let bind_group = device.create_bind_group(&BindGroupDescriptor {
-            entries: &[BindGroupEntry {
-                binding: 0,
-                resource: buffer.binding().unwrap(),
-            }],
-            label: Some("polyline_material_bind_group"),
-            layout: &polyline_pipeline.material_layout,
-        });
+        if let Some(binding) = buffer.binding() {
+            let bind_group = device.create_bind_group(
+                "polyline_material_bind_group",
+                &polyline_pipeline.material_layout,
+                &BindGroupEntries::single(binding),
+            );
 
-        let alpha_mode = if material.color.a() < 1.0 {
-            AlphaMode::Blend
+            let alpha_mode = if material.color.a() < 1.0 {
+                AlphaMode::Blend
+            } else {
+                AlphaMode::Opaque
+            };
+
+            Ok(GpuPolylineMaterial {
+                buffer,
+                perspective: material.perspective,
+                alpha_mode,
+                bind_group,
+            })
         } else {
-            AlphaMode::Opaque
-        };
-
-        Ok(GpuPolylineMaterial {
-            buffer,
-            perspective: material.perspective,
-            alpha_mode,
-            bind_group,
-        })
+            panic!();
+        }
     }
 }
 
@@ -182,7 +182,7 @@ pub struct PolylineMaterialPlugin;
 
 impl Plugin for PolylineMaterialPlugin {
     fn build(&self, app: &mut App) {
-        app.add_asset::<PolylineMaterial>()
+        app.init_asset::<PolylineMaterial>()
             .add_plugins(ExtractComponentPlugin::<Handle<PolylineMaterial>>::default())
             .add_plugins(RenderAssetPlugin::<PolylineMaterial>::default());
     }
@@ -250,10 +250,11 @@ type DrawMaterial = (
 );
 
 pub struct SetPolylineViewBindGroup<const I: usize>;
+
 impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetPolylineViewBindGroup<I> {
+    type Param = ();
     type ViewWorldQuery = (Read<ViewUniformOffset>, Read<PolylineViewBindGroup>);
     type ItemWorldQuery = ();
-    type Param = ();
 
     #[inline]
     fn render<'w>(
@@ -269,10 +270,11 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetPolylineViewBindGroup
 }
 
 pub struct SetMaterialBindGroup<const I: usize>;
+
 impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetMaterialBindGroup<I> {
+    type Param = SRes<RenderAssets<PolylineMaterial>>;
     type ViewWorldQuery = ();
     type ItemWorldQuery = Read<Handle<PolylineMaterial>>;
-    type Param = SRes<RenderAssets<PolylineMaterial>>;
 
     fn render<'w>(
         _item: &P,
@@ -311,7 +313,7 @@ pub fn queue_material_polylines(
     )>,
 ) {
     for (view, visible_entities, mut opaque_phase, mut alpha_mask_phase, mut transparent_phase) in
-        views.iter_mut()
+    views.iter_mut()
     {
         let draw_opaque = opaque_draw_functions
             .read()
@@ -358,6 +360,8 @@ pub fn queue_material_polylines(
                                 // -z in front of the camera, values in view space decrease away from the
                                 // camera. Flipping the sign of mesh_z results in the correct front-to-back ordering
                                 distance: -polyline_z,
+                                batch_range: 0..1,
+                                dynamic_offset: None,
                             });
                         }
                         AlphaMode::Mask(_) => {
@@ -370,6 +374,8 @@ pub fn queue_material_polylines(
                                 // -z in front of the camera, values in view space decrease away from the
                                 // camera. Flipping the sign of mesh_z results in the correct front-to-back ordering
                                 distance: -polyline_z,
+                                batch_range: 0..1,
+                                dynamic_offset: None,
                             });
                         }
                         AlphaMode::Blend
@@ -385,6 +391,8 @@ pub fn queue_material_polylines(
                                 // -z in front of the camera, the largest distance is -far with values increasing toward the
                                 // camera. As such we can just use mesh_z as the distance
                                 distance: polyline_z,
+                                batch_range: 0..1,
+                                dynamic_offset: None,
                             });
                         }
                     }
