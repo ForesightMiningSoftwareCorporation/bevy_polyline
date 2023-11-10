@@ -15,7 +15,7 @@ use bevy::{
         },
     },
     prelude::*,
-    reflect::{TypePath, TypeUuid},
+    reflect::{TypePath},
     render::{
         extract_component::ExtractComponentPlugin,
         render_asset::{RenderAsset, RenderAssetPlugin, RenderAssets},

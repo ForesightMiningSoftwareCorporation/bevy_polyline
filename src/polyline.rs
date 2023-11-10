@@ -79,7 +79,7 @@ pub struct Polyline {
 impl Asset for Polyline {}
 
 impl VisitAssetDependencies for Polyline {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+    fn visit_dependencies(&self, _: &mut impl FnMut(UntypedAssetId)) {
         unreachable!()
     }
 }

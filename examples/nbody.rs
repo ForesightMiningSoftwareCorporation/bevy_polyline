@@ -5,14 +5,13 @@ use bevy::{
     math::Vec3A,
     prelude::*,
 };
-use bevy::window::PresentMode;
 use bevy_polyline::prelude::*;
 
 use lazy_static::*;
 use rand::{prelude::*, Rng};
 use ringbuffer::{ConstGenericRingBuffer, RingBuffer};
 
-const NUM_BODIES: usize = 6;
+const NUM_BODIES: usize = 512;
 const TRAIL_LENGTH: usize = 1024;
 const MINIMUM_ANGLE: f32 = 1.483_418_7; // == acos(5 degrees)
 
@@ -24,22 +23,15 @@ fn main() {
             scale: 1e6,
             ..Default::default()
         })
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Proc Gen".into(),
-                present_mode: PresentMode::AutoNoVsync,
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
+        .add_plugins(FrameTimeDiagnosticsPlugin::default())
+        .add_plugins(LogDiagnosticsPlugin::default())
         .add_plugins(PolylinePlugin)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
             ((nbody_system, update_trails).chain(), rotator_system),
         )
-        .add_plugins(FrameTimeDiagnosticsPlugin::default())
-        .add_plugins(LogDiagnosticsPlugin::default())
         .run();
 }
 
