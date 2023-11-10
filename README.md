@@ -46,7 +46,8 @@ Due to instancing, Bevy Polyline only makes one drawcall per `PolyLine`, one for
 We intend to track the `main` branch of Bevy. PRs supporting this are welcome!
 
 | bevy | bevy_polyline |
-| ---- | ------------- |
+|------|---------------|
+| 0.12 | 0.8           |
 | 0.11 | 0.7           |
 | 0.10 | 0.5, 0.6      |
 | 0.9  | 0.4           |
