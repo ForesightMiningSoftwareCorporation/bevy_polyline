@@ -44,8 +44,8 @@ impl Plugin for PolylineRenderPlugin {
             .add_systems(
                 Render,
                 (
-                    queue_polyline_bind_group.in_set(RenderSet::PrepareBindGroups),
-                    queue_polyline_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                    prepare_polyline_bind_group.in_set(RenderSet::PrepareBindGroups),
+                    prepare_polyline_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
                 ),
             );
     }
@@ -345,7 +345,7 @@ pub struct PolylineBindGroup {
     pub value: BindGroup,
 }
 
-pub fn queue_polyline_bind_group(
+pub fn prepare_polyline_bind_group(
     mut commands: Commands,
     polyline_pipeline: Res<PolylinePipeline>,
     render_device: Res<RenderDevice>,
@@ -370,7 +370,7 @@ pub struct PolylineViewBindGroup {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn queue_polyline_view_bind_groups(
+pub fn prepare_polyline_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     polyline_pipeline: Res<PolylinePipeline>,
