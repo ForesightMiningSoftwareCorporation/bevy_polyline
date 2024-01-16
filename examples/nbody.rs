@@ -9,7 +9,7 @@ use bevy_polyline::prelude::*;
 
 use lazy_static::*;
 use rand::{prelude::*, Rng};
-use ringbuffer::{ConstGenericRingBuffer, RingBufferExt, RingBufferWrite};
+use ringbuffer::{ConstGenericRingBuffer, RingBuffer};
 
 const NUM_BODIES: usize = 512;
 const TRAIL_LENGTH: usize = 1024;
@@ -208,7 +208,7 @@ fn update_trails(
     query.for_each_mut(|(body, mut trail, polyline)| {
         if let Some(position) = trail.0.back() {
             let last_vec = *position - body.position;
-            let last_last_vec = if let Some(position) = trail.0.get(-2) {
+            let last_last_vec = if let Some(position) = trail.0.get_signed(-2) {
                 *position - body.position
             } else {
                 last_vec
@@ -221,7 +221,7 @@ fn update_trails(
             } else {
                 // If the last point didn't actually add much of a curve, just overwrite it.
                 if polylines.get_mut(polyline).unwrap().vertices.len() > 1 {
-                    *trail.0.get_mut(-1).unwrap() = body.position;
+                    *trail.0.get_mut_signed(-1).unwrap() = body.position;
                     *polylines
                         .get_mut(polyline)
                         .unwrap()
