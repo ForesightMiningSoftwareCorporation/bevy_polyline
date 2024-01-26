@@ -17,9 +17,9 @@ pub struct PolylinePlugin;
 
 impl Plugin for PolylinePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        #[cfg(all(target_family = "windows"))]
+        #[cfg(target_family = "windows")]
         embedded_asset!(app, "src\\", "shaders\\polyline.wgsl");
-        #[cfg(any(not(target_family = "windows")))]
+        #[cfg(not(target_family = "windows"))]
         embedded_asset!(app, "src/", "shaders/polyline.wgsl");
 
         app.add_plugins((
