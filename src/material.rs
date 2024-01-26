@@ -1,10 +1,8 @@
-use crate::{
-    polyline::{
-        DrawPolyline, PolylinePipeline, PolylinePipelineKey, PolylineUniform,
-        PolylineViewBindGroup, SetPolylineBindGroup,
-    },
-    SHADER_HANDLE,
+use crate::polyline::{
+    DrawPolyline, PolylinePipeline, PolylinePipelineKey, PolylineUniform, PolylineViewBindGroup,
+    SetPolylineBindGroup,
 };
+
 use bevy::{
     core_pipeline::core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
     ecs::{
@@ -28,7 +26,7 @@ use bevy::{
 };
 use std::fmt::Debug;
 
-#[derive(Component, Debug, PartialEq, Clone, Copy, TypeUuid, TypePath)]
+#[derive(Asset, Debug, PartialEq, Clone, Copy, TypeUuid, TypePath)]
 #[uuid = "69b87497-2ba0-4c38-ba82-f54bf1ffe873"]
 pub struct PolylineMaterial {
     /// Width of the line.
@@ -73,14 +71,6 @@ impl Default for PolylineMaterial {
 }
 
 impl PolylineMaterial {
-    fn fragment_shader() -> Handle<Shader> {
-        SHADER_HANDLE.typed()
-    }
-
-    fn vertex_shader() -> Handle<Shader> {
-        SHADER_HANDLE.typed()
-    }
-
     pub fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout {
         render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
@@ -152,14 +142,14 @@ impl RenderAsset for PolylineMaterial {
         let mut buffer = UniformBuffer::from(value);
         buffer.write_buffer(device, queue);
 
-        let bind_group = device.create_bind_group(&BindGroupDescriptor {
-            entries: &[BindGroupEntry {
+        let bind_group = device.create_bind_group(
+            Some("polyline_material_bind_group"),
+            &polyline_pipeline.material_layout,
+            &[BindGroupEntry {
                 binding: 0,
                 resource: buffer.binding().unwrap(),
             }],
-            label: Some("polyline_material_bind_group"),
-            layout: &polyline_pipeline.material_layout,
-        });
+        );
 
         let alpha_mode = if material.color.a() < 1.0 {
             AlphaMode::Blend
@@ -182,7 +172,7 @@ pub struct PolylineMaterialPlugin;
 
 impl Plugin for PolylineMaterialPlugin {
     fn build(&self, app: &mut App) {
-        app.add_asset::<PolylineMaterial>()
+        app.init_asset::<PolylineMaterial>()
             .add_plugins(ExtractComponentPlugin::<Handle<PolylineMaterial>>::default())
             .add_plugins(RenderAssetPlugin::<PolylineMaterial>::default());
     }
@@ -204,8 +194,6 @@ impl Plugin for PolylineMaterialPlugin {
 pub struct PolylineMaterialPipeline {
     pub polyline_pipeline: PolylinePipeline,
     pub material_layout: BindGroupLayout,
-    pub vertex_shader: Handle<Shader>,
-    pub fragment_shader: Handle<Shader>,
 }
 
 impl FromWorld for PolylineMaterialPipeline {
@@ -216,8 +204,6 @@ impl FromWorld for PolylineMaterialPipeline {
         PolylineMaterialPipeline {
             polyline_pipeline: world.get_resource::<PolylinePipeline>().unwrap().to_owned(),
             material_layout,
-            vertex_shader: PolylineMaterial::vertex_shader(),
-            fragment_shader: PolylineMaterial::fragment_shader(),
         }
     }
 }
@@ -358,6 +344,8 @@ pub fn queue_material_polylines(
                                 // -z in front of the camera, values in view space decrease away from the
                                 // camera. Flipping the sign of mesh_z results in the correct front-to-back ordering
                                 distance: -polyline_z,
+                                batch_range: 0..1,
+                                dynamic_offset: None,
                             });
                         }
                         AlphaMode::Mask(_) => {
@@ -370,6 +358,8 @@ pub fn queue_material_polylines(
                                 // -z in front of the camera, values in view space decrease away from the
                                 // camera. Flipping the sign of mesh_z results in the correct front-to-back ordering
                                 distance: -polyline_z,
+                                batch_range: 0..1,
+                                dynamic_offset: None,
                             });
                         }
                         AlphaMode::Blend
@@ -385,6 +375,8 @@ pub fn queue_material_polylines(
                                 // -z in front of the camera, the largest distance is -far with values increasing toward the
                                 // camera. As such we can just use mesh_z as the distance
                                 distance: polyline_z,
+                                batch_range: 0..1,
+                                dynamic_offset: None,
                             });
                         }
                     }

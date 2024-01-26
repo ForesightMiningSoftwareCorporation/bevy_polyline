@@ -1,7 +1,7 @@
 #![allow(clippy::type_complexity)]
 #![allow(clippy::too_many_arguments)]
 
-use bevy::{prelude::*, reflect::TypeUuid};
+use bevy::{asset::embedded_asset, prelude::*};
 use material::PolylineMaterialPlugin;
 use polyline::{PolylineBasePlugin, PolylineRenderPlugin};
 
@@ -13,19 +13,15 @@ pub mod prelude {
     pub use crate::polyline::{Polyline, PolylineBundle};
     pub use crate::PolylinePlugin;
 }
-
-pub const SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 12823766040132746065);
-
 pub struct PolylinePlugin;
 
 impl Plugin for PolylinePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
-        shaders.set_untracked(
-            SHADER_HANDLE,
-            Shader::from_wgsl(include_str!("shaders/polyline.wgsl"), file!()),
-        );
+        #[cfg(target_family = "windows")]
+        embedded_asset!(app, "src\\", "shaders\\polyline.wgsl");
+        #[cfg(not(target_family = "windows"))]
+        embedded_asset!(app, "src/", "shaders/polyline.wgsl");
+
         app.add_plugins((
             PolylineBasePlugin,
             PolylineRenderPlugin,
