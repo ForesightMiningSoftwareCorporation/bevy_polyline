@@ -1,7 +1,7 @@
 #![allow(clippy::type_complexity)]
 #![allow(clippy::too_many_arguments)]
 
-use bevy::{prelude::*, asset::embedded_asset};
+use bevy::{asset::embedded_asset, prelude::*};
 use material::PolylineMaterialPlugin;
 use polyline::{PolylineBasePlugin, PolylineRenderPlugin};
 
@@ -20,8 +20,7 @@ impl Plugin for PolylinePlugin {
         #[cfg(all(target_family = "windows"))]
         embedded_asset!(app, "src\\", "shaders\\polyline.wgsl");
         #[cfg(any(not(target_family = "windows")))]
-        embedded_asset!(app, "src/","shaders/polyline.wgsl");
-
+        embedded_asset!(app, "src/", "shaders/polyline.wgsl");
 
         app.add_plugins((
             PolylineBasePlugin,

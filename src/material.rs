@@ -1,7 +1,7 @@
 use crate::polyline::{
-        DrawPolyline, PolylinePipeline, PolylinePipelineKey, PolylineUniform,
-        PolylineViewBindGroup, SetPolylineBindGroup,
-    };
+    DrawPolyline, PolylinePipeline, PolylinePipelineKey, PolylineUniform, PolylineViewBindGroup,
+    SetPolylineBindGroup,
+};
 
 use bevy::{
     core_pipeline::core_3d::{AlphaMask3d, Opaque3d, Transparent3d},

@@ -360,7 +360,8 @@ pub fn prepare_polyline_bind_group(
                     binding: 0,
                     resource: binding,
                 }],
-        )});
+            ),
+        });
     }
 }
 
