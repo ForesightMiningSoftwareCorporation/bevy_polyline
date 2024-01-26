@@ -41,18 +41,19 @@ fn setup(
         ..Default::default()
     });
 
+    // circular base
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane::from_size(5.0))),
-        material: standard_materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
-        transform: Transform::from_xyz(0.0, -0.5, 0.0),
-        ..Default::default()
+        mesh: meshes.add(shape::Circle::new(4.0).into()),
+        material: standard_materials.add(Color::WHITE.into()),
+        transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2))
+            .with_translation(Vec3::new(0.0, -0.5, 0.0)),
+        ..default()
     });
-
     // cube
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: standard_materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-        ..Default::default()
+        mesh: meshes.add(shape::Cube { size: 1.0 }.into()),
+        material: standard_materials.add(Color::rgb_u8(124, 144, 255).into()),
+        ..default()
     });
 
     // light
