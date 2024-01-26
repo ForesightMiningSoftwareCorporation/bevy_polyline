@@ -18,7 +18,7 @@ authors = [
 
 [dependencies]
 bitflags = "2.3"
-bevy = { version = "0.11.0", default-features = false, features = [
+bevy = { version = "0.12", default-features = false, features = [
     "bevy_core_pipeline",
     "bevy_render",
     "bevy_asset",
@@ -26,13 +26,13 @@ bevy = { version = "0.11.0", default-features = false, features = [
 
 [dependencies.naga]
 features = ["glsl-in", "spv-out", "wgsl-out"]
-version = "0.12"
+version = "0.13"
 
 [dev-dependencies]
 lazy_static = "1.4.0"
 rand = "0.8.4"
-ringbuffer = "0.14"
-bevy = { version = "0.11.0", default-features = false, features = [
+ringbuffer = "0.15"
+bevy = { version = "0.12", default-features = false, features = [
     "bevy_winit",
     "bevy_pbr",
     "x11",
