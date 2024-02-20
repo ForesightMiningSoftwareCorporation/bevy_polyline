@@ -190,11 +190,10 @@ impl FromWorld for PolylinePipeline {
             label: Some("polyline_layout"),
         });
 
-        let assets = world.resource_mut::<AssetServer>();
         PolylinePipeline {
             view_layout,
             polyline_layout,
-            shader: assets.load("embedded://bevy_polyline/shaders/polyline.wgsl"),
+            shader: crate::SHADER_HANDLE,
         }
     }
 }
