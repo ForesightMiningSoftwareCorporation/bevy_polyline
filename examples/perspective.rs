@@ -73,7 +73,7 @@ fn toggle_perspective(
     mut polyline_materials: ResMut<Assets<PolylineMaterial>>,
     keyboard_input: Res<Input<KeyCode>>,
 ) {
-    for (_, mut mat) in polyline_materials.iter_mut() {
+    for (_, mat) in polyline_materials.iter_mut() {
         if keyboard_input.just_pressed(KeyCode::X) {
             mat.perspective = !mat.perspective;
         }
