@@ -9,10 +9,12 @@ use bevy::{
         },
     },
     prelude::*,
-    reflect::{TypePath, TypeUuid},
+    reflect::TypePath,
     render::{
         extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
-        render_asset::{RenderAsset, RenderAssetPlugin, RenderAssets},
+        render_asset::{
+            PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssetUsages, RenderAssets,
+        },
         render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
         render_resource::*,
         renderer::RenderDevice,
@@ -64,31 +66,21 @@ pub struct PolylineBundle {
     pub view_visibility: ViewVisibility,
 }
 
-#[derive(Debug, Default, Asset, Clone, TypeUuid, TypePath)]
-#[uuid = "c76af88a-8afe-405c-9a64-0a7d845d2546"]
+#[derive(Debug, Default, Asset, Clone, TypePath)]
 pub struct Polyline {
     pub vertices: Vec<Vec3>,
 }
 
 impl RenderAsset for Polyline {
-    type ExtractedAsset = Polyline;
-
     type PreparedAsset = GpuPolyline;
 
     type Param = SRes<RenderDevice>;
 
-    fn extract_asset(&self) -> Self::ExtractedAsset {
-        self.clone()
-    }
-
     fn prepare_asset(
-        polyline: Self::ExtractedAsset,
-        render_device: &mut bevy::ecs::system::SystemParamItem<Self::Param>,
-    ) -> Result<
-        Self::PreparedAsset,
-        bevy::render::render_asset::PrepareAssetError<Self::ExtractedAsset>,
-    > {
-        let vertex_buffer_data = cast_slice(polyline.vertices.as_slice());
+        self,
+        render_device: &mut SystemParamItem<Self::Param>,
+    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self>> {
+        let vertex_buffer_data = cast_slice(self.vertices.as_slice());
         let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
             label: Some("Polyline Vertex Buffer"),
@@ -97,8 +89,12 @@ impl RenderAsset for Polyline {
 
         Ok(GpuPolyline {
             vertex_buffer,
-            vertex_count: polyline.vertices.len() as u32,
+            vertex_count: self.vertices.len() as u32,
         })
+    }
+
+    fn asset_usage(&self) -> RenderAssetUsages {
+        RenderAssetUsages::RENDER_WORLD
     }
 }
 
@@ -159,8 +155,9 @@ pub struct PolylinePipeline {
 impl FromWorld for PolylinePipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.get_resource::<RenderDevice>().unwrap();
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
+        let view_layout = render_device.create_bind_group_layout(
+            "polyline_view_layout",
+            &[
                 // View
                 BindGroupLayoutEntry {
                     binding: 0,
@@ -173,11 +170,11 @@ impl FromWorld for PolylinePipeline {
                     count: None,
                 },
             ],
-            label: Some("polyline_view_layout"),
-        });
+        );
 
-        let polyline_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[BindGroupLayoutEntry {
+        let polyline_layout = render_device.create_bind_group_layout(
+            "polyline_layout",
+            &[BindGroupLayoutEntry {
                 binding: 0,
                 visibility: ShaderStages::VERTEX,
                 ty: BindingType::Buffer {
@@ -187,8 +184,7 @@ impl FromWorld for PolylinePipeline {
                 },
                 count: None,
             }],
-            label: Some("polyline_layout"),
-        });
+        );
 
         PolylinePipeline {
             view_layout,
@@ -397,38 +393,44 @@ pub fn prepare_polyline_view_bind_groups(
 
 pub struct SetPolylineBindGroup<const I: usize>;
 impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetPolylineBindGroup<I> {
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<DynamicUniformIndex<PolylineUniform>>;
+    type ViewQuery = ();
+    type ItemQuery = Read<DynamicUniformIndex<PolylineUniform>>;
     type Param = SRes<PolylineBindGroup>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        _view: ROQueryItem<'w, Self::ViewWorldQuery>,
-        polyline_index: ROQueryItem<'w, Self::ItemWorldQuery>,
+        _view: ROQueryItem<'w, Self::ViewQuery>,
+        polyline_index: Option<ROQueryItem<'w, Self::ItemQuery>>,
         bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        pass.set_bind_group(I, &bind_group.into_inner().value, &[polyline_index.index()]);
-        RenderCommandResult::Success
+        if let Some(polyline_index) = polyline_index {
+            pass.set_bind_group(I, &bind_group.into_inner().value, &[polyline_index.index()]);
+            RenderCommandResult::Success
+        } else {
+            RenderCommandResult::Failure
+        }
     }
 }
 
 pub struct DrawPolyline;
 impl<P: PhaseItem> RenderCommand<P> for DrawPolyline {
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<Handle<Polyline>>;
+    type ViewQuery = ();
+    type ItemQuery = Read<Handle<Polyline>>;
     type Param = SRes<RenderAssets<Polyline>>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        _view: ROQueryItem<'w, Self::ViewWorldQuery>,
-        pl_handle: ROQueryItem<'w, Self::ItemWorldQuery>,
+        _view: ROQueryItem<'w, Self::ViewQuery>,
+        pl_handle: Option<&'w bevy::prelude::Handle<Polyline>>,
         polylines: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        if let Some(gpu_polyline) = polylines.into_inner().get(pl_handle) {
+        if let Some(gpu_polyline) =
+            pl_handle.and_then(|pl_handle| polylines.into_inner().get(pl_handle))
+        {
             pass.set_vertex_buffer(0, gpu_polyline.vertex_buffer.slice(..));
             let num_instances = gpu_polyline.vertex_count.max(1) - 1;
             pass.draw(0..6, 0..num_instances);
