@@ -341,7 +341,7 @@ pub fn queue_material_polylines(
                                 pipeline: pipeline_id,
                                 batch_range: 0..1,
                                 dynamic_offset: None,
-                                asset_id: todo!("What mesh goes here?"),
+                                asset_id: AssetId::invalid(),
                             });
                         }
                         AlphaMode::Mask(_) => {

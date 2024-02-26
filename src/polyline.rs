@@ -94,7 +94,7 @@ impl RenderAsset for Polyline {
     }
 
     fn asset_usage(&self) -> RenderAssetUsages {
-        RenderAssetUsages::RENDER_WORLD
+        RenderAssetUsages::all()
     }
 }
 
