@@ -44,7 +44,7 @@ fn setup(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(Plane3d::new(Vec3::Y))),
         material: standard_materials.add(StandardMaterial::from(Color::rgb(0.3, 0.5, 0.3))),
-        transform: Transform::from_xyz(0.0, -0.5, 0.0),
+        transform: Transform::from_xyz(0.0, -0.5, 0.0).with_scale(Vec3::new(2.5, 1.0, 2.5)),
         ..Default::default()
     });
 
