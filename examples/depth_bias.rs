@@ -1,6 +1,7 @@
 use std::f32::consts::TAU;
 use std::f64::consts::TAU as TAU64;
 
+use bevy::math::vec3;
 use bevy::prelude::*;
 use bevy_polyline::prelude::*;
 
@@ -41,11 +42,11 @@ fn rotate_plane(time: Res<Time>, mut animated: Query<(&mut Transform, &Rotating)
     }
 }
 
-fn move_camera(input: Res<Input<KeyCode>>, mut camera: Query<&mut Transform, With<Camera>>) {
+fn move_camera(input: Res<ButtonInput<KeyCode>>, mut camera: Query<&mut Transform, With<Camera>>) {
     if let Ok(mut camera_transform) = camera.get_single_mut() {
         let trans = &mut camera_transform.translation;
-        let go_forward = input.any_pressed([KeyCode::Up, KeyCode::I, KeyCode::W]);
-        let go_backward = input.any_pressed([KeyCode::Down, KeyCode::K, KeyCode::S]);
+        let go_forward = input.any_pressed([KeyCode::ArrowUp, KeyCode::KeyI, KeyCode::KeyW]);
+        let go_backward = input.any_pressed([KeyCode::ArrowDown, KeyCode::KeyK, KeyCode::KeyS]);
         if go_forward && trans.x > 10.0 {
             trans.x -= 2.0;
         } else if go_backward && trans.x < 500.0 {
@@ -65,8 +66,8 @@ fn setup(
         .insert(Transform::from_xyz(100.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y));
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::Box::new(0.01, 100.0, 10000.0).into()),
-            material: pbr_materials.add(Color::WHITE.into()),
+            mesh: meshes.add(Mesh::from(Cuboid::from_size(vec3(0.01, 100.0, 10000.0)))),
+            material: pbr_materials.add(StandardMaterial::from(Color::WHITE)),
             ..default()
         },
         Rotating(30.0),
