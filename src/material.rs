@@ -13,10 +13,10 @@ use bevy::{
         },
     },
     prelude::*,
-    reflect::{TypePath, TypeUuid},
+    reflect::TypePath,
     render::{
         extract_component::ExtractComponentPlugin,
-        render_asset::{RenderAsset, RenderAssetPlugin, RenderAssets},
+        render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssetUsages, RenderAssets},
         render_phase::*,
         render_resource::*,
         renderer::{RenderDevice, RenderQueue},
@@ -26,8 +26,9 @@ use bevy::{
 };
 use std::fmt::Debug;
 
-#[derive(Asset, Debug, PartialEq, Clone, Copy, TypeUuid, TypePath)]
-#[uuid = "69b87497-2ba0-4c38-ba82-f54bf1ffe873"]
+// #[derive(Asset, Debug, PartialEq, Clone, Copy, TypeUuid, TypePath)]
+// #[uuid = "69b87497-2ba0-4c38-ba82-f54bf1ffe873"]
+#[derive(Asset, Debug, PartialEq, Clone, Copy, TypePath)]
 pub struct PolylineMaterial {
     /// Width of the line.
     ///
@@ -72,8 +73,9 @@ impl Default for PolylineMaterial {
 
 impl PolylineMaterial {
     pub fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout {
-        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[BindGroupLayoutEntry {
+        render_device.create_bind_group_layout(
+            Some("polyline_material_layout"),
+            &[BindGroupLayoutEntry {
                 binding: 0,
                 visibility: ShaderStages::VERTEX,
                 ty: BindingType::Buffer {
@@ -82,9 +84,8 @@ impl PolylineMaterial {
                     min_binding_size: BufferSize::new(PolylineMaterialUniform::min_size().into()),
                 },
                 count: None,
-            }],
-            label: Some("polyline_material_layout"),
-        })
+            }]
+        )
     }
 
     #[inline]
@@ -114,7 +115,7 @@ pub struct GpuPolylineMaterial {
 }
 
 impl RenderAsset for PolylineMaterial {
-    type ExtractedAsset = PolylineMaterial;
+    // type ExtractedAsset = PolylineMaterial;
     type PreparedAsset = GpuPolylineMaterial;
     type Param = (
         SRes<RenderDevice>,
@@ -122,21 +123,21 @@ impl RenderAsset for PolylineMaterial {
         SRes<PolylineMaterialPipeline>,
     );
 
-    fn extract_asset(&self) -> Self::ExtractedAsset {
-        *self
+    fn asset_usage(&self) -> RenderAssetUsages {
+        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
     }
 
     fn prepare_asset(
-        material: Self::ExtractedAsset,
-        (device, queue, polyline_pipeline): &mut bevy::ecs::system::SystemParamItem<Self::Param>,
+        self,
+        (device, queue, polyline_pipeline): &mut SystemParamItem<Self::Param>,
     ) -> Result<
         Self::PreparedAsset,
-        bevy::render::render_asset::PrepareAssetError<Self::ExtractedAsset>,
+        PrepareAssetError<Self>,
     > {
         let value = PolylineMaterialUniform {
-            width: material.width,
-            depth_bias: material.depth_bias,
-            color: material.color.as_linear_rgba_f32().into(),
+            width: self.width,
+            depth_bias: self.depth_bias,
+            color: self.color.as_linear_rgba_f32().into(),
         };
 
         let mut buffer = UniformBuffer::from(value);
@@ -151,7 +152,7 @@ impl RenderAsset for PolylineMaterial {
             }],
         );
 
-        let alpha_mode = if material.color.a() < 1.0 {
+        let alpha_mode = if self.color.a() < 1.0 {
             AlphaMode::Blend
         } else {
             AlphaMode::Opaque
@@ -159,7 +160,7 @@ impl RenderAsset for PolylineMaterial {
 
         Ok(GpuPolylineMaterial {
             buffer,
-            perspective: material.perspective,
+            perspective: self.perspective,
             alpha_mode,
             bind_group,
         })
@@ -237,15 +238,15 @@ type DrawMaterial = (
 
 pub struct SetPolylineViewBindGroup<const I: usize>;
 impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetPolylineViewBindGroup<I> {
-    type ViewWorldQuery = (Read<ViewUniformOffset>, Read<PolylineViewBindGroup>);
-    type ItemWorldQuery = ();
+    type ViewQuery = (Read<ViewUniformOffset>, Read<PolylineViewBindGroup>);
+    type ItemQuery = ();
     type Param = ();
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        (view_uniform, mesh_view_bind_group): ROQueryItem<'w, Self::ViewWorldQuery>,
-        _entity: ROQueryItem<'w, Self::ItemWorldQuery>,
+        (view_uniform, mesh_view_bind_group): ROQueryItem<'w, Self::ViewQuery>,
+        _entity: Option<ROQueryItem<'w, Self::ItemQuery>>,
         _param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -256,18 +257,19 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetPolylineViewBindGroup
 
 pub struct SetMaterialBindGroup<const I: usize>;
 impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetMaterialBindGroup<I> {
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<Handle<PolylineMaterial>>;
+    type ViewQuery = ();
+    type ItemQuery = Read<Handle<PolylineMaterial>>;
     type Param = SRes<RenderAssets<PolylineMaterial>>;
 
     fn render<'w>(
         _item: &P,
-        _view: ROQueryItem<'w, Self::ViewWorldQuery>,
-        material_handle: ROQueryItem<'w, Self::ItemWorldQuery>,
+        _view: ROQueryItem<'w, Self::ViewQuery>,
+        material_handle: Option<ROQueryItem<'w, Self::ItemQuery>>,
         materials: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let material = materials.into_inner().get(material_handle).unwrap();
+        let mat_handle = material_handle.unwrap();
+        let material = materials.into_inner().get(mat_handle).unwrap();
         pass.set_bind_group(
             I,
             PolylineMaterial::bind_group(material),
@@ -343,7 +345,8 @@ pub fn queue_material_polylines(
                                 // lowest sort key and getting further away should increase. As we have
                                 // -z in front of the camera, values in view space decrease away from the
                                 // camera. Flipping the sign of mesh_z results in the correct front-to-back ordering
-                                distance: -polyline_z,
+                                //distance: -polyline_z,
+                                asset_id: AssetId::default(), // TODO: this is probably wrong
                                 batch_range: 0..1,
                                 dynamic_offset: None,
                             });

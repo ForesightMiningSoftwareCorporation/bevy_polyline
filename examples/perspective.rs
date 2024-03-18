@@ -41,28 +41,28 @@ fn setup(
 
 fn move_camera(
     mut q: Query<&mut Transform, With<Camera>>,
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
     let speed = 5.0;
     for mut t in &mut q {
         let mut dir = Vec3::ZERO;
-        if keyboard_input.pressed(KeyCode::W) {
+        if keyboard_input.pressed(KeyCode::KeyW) {
             dir.z -= 1.0;
         }
-        if keyboard_input.pressed(KeyCode::S) {
+        if keyboard_input.pressed(KeyCode::KeyS) {
             dir.z += 1.0;
         }
-        if keyboard_input.pressed(KeyCode::A) {
+        if keyboard_input.pressed(KeyCode::KeyA) {
             dir.x -= 1.0;
         }
-        if keyboard_input.pressed(KeyCode::D) {
+        if keyboard_input.pressed(KeyCode::KeyD) {
             dir.x += 1.0;
         }
-        if keyboard_input.pressed(KeyCode::Q) {
+        if keyboard_input.pressed(KeyCode::KeyQ) {
             dir.y -= 1.0;
         }
-        if keyboard_input.pressed(KeyCode::E) {
+        if keyboard_input.pressed(KeyCode::KeyE) {
             dir.y += 1.0;
         }
         t.translation += dir * time.delta_seconds() * speed;
@@ -71,10 +71,10 @@ fn move_camera(
 
 fn toggle_perspective(
     mut polyline_materials: ResMut<Assets<PolylineMaterial>>,
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
     for (_, mat) in polyline_materials.iter_mut() {
-        if keyboard_input.just_pressed(KeyCode::X) {
+        if keyboard_input.just_pressed(KeyCode::KeyX) {
             mat.perspective = !mat.perspective;
         }
     }

@@ -205,7 +205,7 @@ fn update_trails(
     mut polylines: ResMut<Assets<Polyline>>,
     mut query: Query<(&Body, &mut Trail, &Handle<Polyline>)>,
 ) {
-    query.for_each_mut(|(body, mut trail, polyline)| {
+    for (body, mut trail, polyline) in &mut query {
         if let Some(position) = trail.0.back() {
             let last_vec = *position - body.position;
             let last_last_vec = if let Some(position) = trail.0.get_signed(-2) {
@@ -235,7 +235,7 @@ fn update_trails(
             polylines.get_mut(polyline).unwrap().vertices =
                 trail.0.iter().map(|v| Vec3::from(*v)).collect()
         }
-    });
+    }
 }
 
 lazy_static! {
