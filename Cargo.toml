@@ -17,8 +17,8 @@ authors = [
 ]
 
 [dependencies]
-bitflags = "2.3"
-bevy = { version = "0.12", default-features = false, features = [
+bitflags = "2.4"
+bevy = { version = "0.13", default-features = false, features = [
     "bevy_core_pipeline",
     "bevy_render",
     "bevy_asset",
@@ -32,7 +32,7 @@ version = "0.13"
 lazy_static = "1.4.0"
 rand = "0.8.4"
 ringbuffer = "0.15"
-bevy = { version = "0.12", default-features = false, features = [
+bevy = { version = "0.13", default-features = false, features = [
     "bevy_winit",
     "bevy_pbr",
     "x11",
