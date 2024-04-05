@@ -72,7 +72,7 @@ Unless you explicitly state otherwise, any contribution intentionally submitted 
 
 ## Sponsors
 
-The creation and maintenance of Bevy Polyline is sponsored by Foresight Mining Software Corporation.
+The creation and maintenance of Bevy Polyline is sponsored by Foresight Spatial Labs.
 
 <div align="center">
 <img width="480" src="https://github.com/ForesightMiningSoftwareCorporation/bevy_polyline/assets/2632925/035000f5-94bb-4e8a-9ae1-8f830a331d03"/>
