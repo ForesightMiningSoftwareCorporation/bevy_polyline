@@ -74,4 +74,6 @@ Unless you explicitly state otherwise, any contribution intentionally submitted 
 
 The creation and maintenance of Bevy Polyline is sponsored by Foresight Mining Software Corporation.
 
-<img src="https://user-images.githubusercontent.com/2632925/151242316-db3455d1-4934-4374-8369-1818daf512dd.png" alt="Foresight Mining Software Corporation" width="480">
+<div align="center">
+<img width="480" src="https://github.com/ForesightMiningSoftwareCorporation/.github-private/assets/2632925/c3ecc2da-c123-4f8b-b238-dbe3b3e22dfb"/>
+</div>
