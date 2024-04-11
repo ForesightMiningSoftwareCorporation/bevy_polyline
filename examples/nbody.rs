@@ -205,7 +205,7 @@ fn update_trails(
     mut polylines: ResMut<Assets<Polyline>>,
     mut query: Query<(&Body, &mut Trail, &Handle<Polyline>)>,
 ) {
-    query.for_each_mut(|(body, mut trail, polyline)| {
+    query.iter_mut().for_each(|(body, mut trail, polyline)| {
         if let Some(position) = trail.0.back() {
             let last_vec = *position - body.position;
             let last_last_vec = if let Some(position) = trail.0.get_signed(-2) {
