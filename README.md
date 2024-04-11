@@ -69,11 +69,3 @@ bevy_polyline is free and open source! All code in this repository is dual-licen
 at your option. This means you can select the license you prefer! This dual-licensing approach is the de-facto standard in the Rust ecosystem and there are very good reasons to include both.
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
-
-## Sponsors
-
-The creation and maintenance of Bevy Polyline is sponsored by Foresight Spatial Labs.
-
-<div align="center">
-<img width="480" src="https://github.com/ForesightMiningSoftwareCorporation/bevy_polyline/assets/2632925/035000f5-94bb-4e8a-9ae1-8f830a331d03"/>
-</div>
