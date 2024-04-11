@@ -16,7 +16,9 @@ use bevy::{
     reflect::TypePath,
     render::{
         extract_component::ExtractComponentPlugin,
-        render_asset::{RenderAsset, RenderAssetPlugin, RenderAssetUsages, RenderAssets},
+        render_asset::{
+            PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssetUsages, RenderAssets,
+        },
         render_phase::*,
         render_resource::{binding_types::uniform_buffer, *},
         renderer::{RenderDevice, RenderQueue},
@@ -114,14 +116,14 @@ impl RenderAsset for PolylineMaterial {
         SRes<PolylineMaterialPipeline>,
     );
 
-    fn asset_usage(&self) -> bevy::render::render_asset::RenderAssetUsages {
+    fn asset_usage(&self) -> RenderAssetUsages {
         RenderAssetUsages::default()
     }
 
     fn prepare_asset(
         self,
         (device, queue, polyline_pipeline): &mut bevy::ecs::system::SystemParamItem<Self::Param>,
-    ) -> Result<Self::PreparedAsset, bevy::render::render_asset::PrepareAssetError<Self>> {
+    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self>> {
         let value = PolylineMaterialUniform {
             width: self.width,
             depth_bias: self.depth_bias,
@@ -131,13 +133,14 @@ impl RenderAsset for PolylineMaterial {
         let mut buffer = UniformBuffer::from(value);
         buffer.write_buffer(device, queue);
 
+        let Some(buffer_binding) = buffer.binding() else {
+            return Err(PrepareAssetError::RetryNextUpdate(self));
+        };
+
         let bind_group = device.create_bind_group(
             Some("polyline_material_bind_group"),
             &polyline_pipeline.material_layout,
-            &[BindGroupEntry {
-                binding: 0,
-                resource: buffer.binding().unwrap(),
-            }],
+            &BindGroupEntries::single(buffer_binding),
         );
 
         let alpha_mode = if self.color.a() < 1.0 {
@@ -169,9 +172,9 @@ impl Plugin for PolylineMaterialPlugin {
     fn finish(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .add_render_command::<Transparent3d, DrawMaterial>()
-                .add_render_command::<Opaque3d, DrawMaterial>()
-                .add_render_command::<AlphaMask3d, DrawMaterial>()
+                .add_render_command::<Transparent3d, DrawPolylineMaterial>()
+                .add_render_command::<Opaque3d, DrawPolylineMaterial>()
+                .add_render_command::<AlphaMask3d, DrawPolylineMaterial>()
                 .init_resource::<PolylineMaterialPipeline>()
                 .init_resource::<SpecializedRenderPipelines<PolylineMaterialPipeline>>()
                 .add_systems(Render, queue_material_polylines.in_set(RenderSet::Queue));
@@ -189,9 +192,9 @@ impl FromWorld for PolylineMaterialPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.get_resource::<RenderDevice>().unwrap();
         let material_layout = PolylineMaterial::bind_group_layout(render_device);
-
+        let pipeline = world.get_resource::<PolylinePipeline>().unwrap();
         PolylineMaterialPipeline {
-            polyline_pipeline: world.get_resource::<PolylinePipeline>().unwrap().to_owned(),
+            polyline_pipeline: pipeline.to_owned(),
             material_layout,
         }
     }
@@ -216,7 +219,7 @@ impl SpecializedRenderPipeline for PolylineMaterialPipeline {
     }
 }
 
-type DrawMaterial = (
+type DrawPolylineMaterial = (
     SetItemPipeline,
     SetPolylineViewBindGroup<0>,
     SetPolylineBindGroup<1>,
@@ -256,10 +259,9 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetMaterialBindGroup<I> 
         materials: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let material = materials
-            .into_inner()
-            .get(material_handle.unwrap())
-            .unwrap();
+        let Some(material) = material_handle.and_then(|h| materials.into_inner().get(h)) else {
+            return RenderCommandResult::Failure;
+        };
         pass.set_bind_group(
             I,
             PolylineMaterial::bind_group(material),
@@ -290,15 +292,15 @@ pub fn queue_material_polylines(
 ) {
     let draw_opaque = opaque_draw_functions
         .read()
-        .get_id::<DrawMaterial>()
+        .get_id::<DrawPolylineMaterial>()
         .unwrap();
     let draw_alpha_mask = alpha_mask_draw_functions
         .read()
-        .get_id::<DrawMaterial>()
+        .get_id::<DrawPolylineMaterial>()
         .unwrap();
     let draw_transparent = transparent_draw_functions
         .read()
-        .get_id::<DrawMaterial>()
+        .get_id::<DrawPolylineMaterial>()
         .unwrap();
 
     for (view, visible_entities, mut opaque_phase, mut alpha_mask_phase, mut transparent_phase) in
@@ -338,7 +340,8 @@ pub fn queue_material_polylines(
                         pipeline: pipeline_id,
                         batch_range: 0..1,
                         dynamic_offset: None,
-                        asset_id: Default::default(),
+                        // The draw command doesn't use a mesh handle so we don't need an `asset_id`
+                        asset_id: AssetId::invalid(),
                     });
                 }
                 AlphaMode::Mask(_) => {

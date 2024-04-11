@@ -99,7 +99,6 @@ impl RenderAsset for Polyline {
 #[derive(Component, Clone, ShaderType)]
 pub struct PolylineUniform {
     pub transform: Mat4,
-    //pub inverse_transpose_model: Mat4,
 }
 
 /// The GPU-representation of a [`Polyline`]
@@ -128,16 +127,7 @@ pub fn extract_polylines(
             continue;
         }
         let transform = transform.compute_matrix();
-        values.push((
-            entity,
-            (
-                handle.clone_weak(),
-                PolylineUniform {
-                    transform,
-                    //inverse_transpose_model: transform.inverse().transpose(),
-                },
-            ),
-        ));
+        values.push((entity, (handle.clone_weak(), PolylineUniform { transform })));
     }
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);
@@ -329,18 +319,13 @@ pub fn prepare_polyline_bind_group(
     render_device: Res<RenderDevice>,
     polyline_uniforms: Res<ComponentUniforms<PolylineUniform>>,
 ) {
-    if let Some(binding) = polyline_uniforms.uniforms().binding() {
-        commands.insert_resource(PolylineBindGroup {
-            value: render_device.create_bind_group(
-                Some("polyline_bind_group"),
-                &polyline_pipeline.polyline_layout,
-                &[BindGroupEntry {
-                    binding: 0,
-                    resource: binding,
-                }],
-            ),
-        });
-    }
+    commands.insert_resource(PolylineBindGroup {
+        value: render_device.create_bind_group(
+            Some("polyline_bind_group"),
+            &polyline_pipeline.polyline_layout,
+            &BindGroupEntries::single(polyline_uniforms.uniforms()),
+        ),
+    });
 }
 
 #[derive(Component)]
@@ -356,21 +341,16 @@ pub fn prepare_polyline_view_bind_groups(
     view_uniforms: Res<ViewUniforms>,
     views: Query<Entity, With<bevy::render::view::ExtractedView>>,
 ) {
-    if let Some(view_binding) = view_uniforms.uniforms.binding() {
-        for entity in views.iter() {
-            let view_bind_group = render_device.create_bind_group(
-                Some("polyline_view_bind_group"),
-                &polyline_pipeline.view_layout,
-                &[BindGroupEntry {
-                    binding: 0,
-                    resource: view_binding.clone(),
-                }],
-            );
+    for entity in views.iter() {
+        let view_bind_group = render_device.create_bind_group(
+            Some("polyline_view_bind_group"),
+            &polyline_pipeline.view_layout,
+            &BindGroupEntries::single(&view_uniforms.uniforms),
+        );
 
-            commands.entity(entity).insert(PolylineViewBindGroup {
-                value: view_bind_group,
-            });
-        }
+        commands.entity(entity).insert(PolylineViewBindGroup {
+            value: view_bind_group,
+        });
     }
 }
 
@@ -388,11 +368,10 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetPolylineBindGroup<I> 
         bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        pass.set_bind_group(
-            I,
-            &bind_group.into_inner().value,
-            &[polyline_index.unwrap().index()],
-        );
+        let Some(dynamic_index) = polyline_index else {
+            return RenderCommandResult::Failure;
+        };
+        pass.set_bind_group(I, &bind_group.into_inner().value, &[dynamic_index.index()]);
         RenderCommandResult::Success
     }
 }
