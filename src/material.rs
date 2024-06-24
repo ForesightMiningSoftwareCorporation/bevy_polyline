@@ -13,12 +13,14 @@ use bevy::{
         },
     },
     prelude::*,
-    reflect::{TypePath, TypeUuid},
+    reflect::TypePath,
     render::{
         extract_component::ExtractComponentPlugin,
-        render_asset::{RenderAsset, RenderAssetPlugin, RenderAssets},
+        render_asset::{
+            PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssetUsages, RenderAssets,
+        },
         render_phase::*,
-        render_resource::*,
+        render_resource::{binding_types::uniform_buffer, *},
         renderer::{RenderDevice, RenderQueue},
         view::{ExtractedView, ViewUniformOffset, VisibleEntities},
         Render, RenderApp, RenderSet,
@@ -26,8 +28,7 @@ use bevy::{
 };
 use std::fmt::Debug;
 
-#[derive(Asset, Debug, PartialEq, Clone, Copy, TypeUuid, TypePath)]
-#[uuid = "69b87497-2ba0-4c38-ba82-f54bf1ffe873"]
+#[derive(Asset, Debug, PartialEq, Clone, Copy, TypePath)]
 pub struct PolylineMaterial {
     /// Width of the line.
     ///
@@ -72,19 +73,13 @@ impl Default for PolylineMaterial {
 
 impl PolylineMaterial {
     pub fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout {
-        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::VERTEX,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: BufferSize::new(PolylineMaterialUniform::min_size().into()),
-                },
-                count: None,
-            }],
-            label: Some("polyline_material_layout"),
-        })
+        render_device.create_bind_group_layout(
+            "polyline_material_layout",
+            &BindGroupLayoutEntries::single(
+                ShaderStages::VERTEX,
+                uniform_buffer::<PolylineMaterialUniform>(false),
+            ),
+        )
     }
 
     #[inline]
@@ -114,7 +109,6 @@ pub struct GpuPolylineMaterial {
 }
 
 impl RenderAsset for PolylineMaterial {
-    type ExtractedAsset = PolylineMaterial;
     type PreparedAsset = GpuPolylineMaterial;
     type Param = (
         SRes<RenderDevice>,
@@ -122,36 +116,34 @@ impl RenderAsset for PolylineMaterial {
         SRes<PolylineMaterialPipeline>,
     );
 
-    fn extract_asset(&self) -> Self::ExtractedAsset {
-        *self
+    fn asset_usage(&self) -> RenderAssetUsages {
+        RenderAssetUsages::default()
     }
 
     fn prepare_asset(
-        material: Self::ExtractedAsset,
+        self,
         (device, queue, polyline_pipeline): &mut bevy::ecs::system::SystemParamItem<Self::Param>,
-    ) -> Result<
-        Self::PreparedAsset,
-        bevy::render::render_asset::PrepareAssetError<Self::ExtractedAsset>,
-    > {
+    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self>> {
         let value = PolylineMaterialUniform {
-            width: material.width,
-            depth_bias: material.depth_bias,
-            color: material.color.as_linear_rgba_f32().into(),
+            width: self.width,
+            depth_bias: self.depth_bias,
+            color: self.color.as_linear_rgba_f32().into(),
         };
 
         let mut buffer = UniformBuffer::from(value);
         buffer.write_buffer(device, queue);
 
+        let Some(buffer_binding) = buffer.binding() else {
+            return Err(PrepareAssetError::RetryNextUpdate(self));
+        };
+
         let bind_group = device.create_bind_group(
             Some("polyline_material_bind_group"),
             &polyline_pipeline.material_layout,
-            &[BindGroupEntry {
-                binding: 0,
-                resource: buffer.binding().unwrap(),
-            }],
+            &BindGroupEntries::single(buffer_binding),
         );
 
-        let alpha_mode = if material.color.a() < 1.0 {
+        let alpha_mode = if self.color.a() < 1.0 {
             AlphaMode::Blend
         } else {
             AlphaMode::Opaque
@@ -159,7 +151,7 @@ impl RenderAsset for PolylineMaterial {
 
         Ok(GpuPolylineMaterial {
             buffer,
-            perspective: material.perspective,
+            perspective: self.perspective,
             alpha_mode,
             bind_group,
         })
@@ -180,9 +172,9 @@ impl Plugin for PolylineMaterialPlugin {
     fn finish(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .add_render_command::<Transparent3d, DrawMaterial>()
-                .add_render_command::<Opaque3d, DrawMaterial>()
-                .add_render_command::<AlphaMask3d, DrawMaterial>()
+                .add_render_command::<Transparent3d, DrawPolylineMaterial>()
+                .add_render_command::<Opaque3d, DrawPolylineMaterial>()
+                .add_render_command::<AlphaMask3d, DrawPolylineMaterial>()
                 .init_resource::<PolylineMaterialPipeline>()
                 .init_resource::<SpecializedRenderPipelines<PolylineMaterialPipeline>>()
                 .add_systems(Render, queue_material_polylines.in_set(RenderSet::Queue));
@@ -200,9 +192,9 @@ impl FromWorld for PolylineMaterialPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.get_resource::<RenderDevice>().unwrap();
         let material_layout = PolylineMaterial::bind_group_layout(render_device);
-
+        let pipeline = world.get_resource::<PolylinePipeline>().unwrap();
         PolylineMaterialPipeline {
-            polyline_pipeline: world.get_resource::<PolylinePipeline>().unwrap().to_owned(),
+            polyline_pipeline: pipeline.to_owned(),
             material_layout,
         }
     }
@@ -227,7 +219,7 @@ impl SpecializedRenderPipeline for PolylineMaterialPipeline {
     }
 }
 
-type DrawMaterial = (
+type DrawPolylineMaterial = (
     SetItemPipeline,
     SetPolylineViewBindGroup<0>,
     SetPolylineBindGroup<1>,
@@ -237,15 +229,15 @@ type DrawMaterial = (
 
 pub struct SetPolylineViewBindGroup<const I: usize>;
 impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetPolylineViewBindGroup<I> {
-    type ViewWorldQuery = (Read<ViewUniformOffset>, Read<PolylineViewBindGroup>);
-    type ItemWorldQuery = ();
+    type ViewQuery = (Read<ViewUniformOffset>, Read<PolylineViewBindGroup>);
+    type ItemQuery = ();
     type Param = ();
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        (view_uniform, mesh_view_bind_group): ROQueryItem<'w, Self::ViewWorldQuery>,
-        _entity: ROQueryItem<'w, Self::ItemWorldQuery>,
+        (view_uniform, mesh_view_bind_group): ROQueryItem<'w, Self::ViewQuery>,
+        _entity: Option<ROQueryItem<'w, Self::ItemQuery>>,
         _param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -256,18 +248,20 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetPolylineViewBindGroup
 
 pub struct SetMaterialBindGroup<const I: usize>;
 impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetMaterialBindGroup<I> {
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<Handle<PolylineMaterial>>;
+    type ViewQuery = ();
+    type ItemQuery = Read<Handle<PolylineMaterial>>;
     type Param = SRes<RenderAssets<PolylineMaterial>>;
 
     fn render<'w>(
         _item: &P,
-        _view: ROQueryItem<'w, Self::ViewWorldQuery>,
-        material_handle: ROQueryItem<'w, Self::ItemWorldQuery>,
+        _view: ROQueryItem<'w, Self::ViewQuery>,
+        material_handle: Option<ROQueryItem<'w, Self::ItemQuery>>,
         materials: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let material = materials.into_inner().get(material_handle).unwrap();
+        let Some(material) = material_handle.and_then(|h| materials.into_inner().get(h)) else {
+            return RenderCommandResult::Failure;
+        };
         pass.set_bind_group(
             I,
             PolylineMaterial::bind_group(material),
@@ -296,22 +290,22 @@ pub fn queue_material_polylines(
         &mut RenderPhase<Transparent3d>,
     )>,
 ) {
+    let draw_opaque = opaque_draw_functions
+        .read()
+        .get_id::<DrawPolylineMaterial>()
+        .unwrap();
+    let draw_alpha_mask = alpha_mask_draw_functions
+        .read()
+        .get_id::<DrawPolylineMaterial>()
+        .unwrap();
+    let draw_transparent = transparent_draw_functions
+        .read()
+        .get_id::<DrawPolylineMaterial>()
+        .unwrap();
+
     for (view, visible_entities, mut opaque_phase, mut alpha_mask_phase, mut transparent_phase) in
         views.iter_mut()
     {
-        let draw_opaque = opaque_draw_functions
-            .read()
-            .get_id::<DrawMaterial>()
-            .unwrap();
-        let draw_alpha_mask = alpha_mask_draw_functions
-            .read()
-            .get_id::<DrawMaterial>()
-            .unwrap();
-        let draw_transparent = transparent_draw_functions
-            .read()
-            .get_id::<DrawMaterial>()
-            .unwrap();
-
         let inverse_view_matrix = view.transform.compute_matrix().inverse();
         let inverse_view_row_2 = inverse_view_matrix.row(2);
 
@@ -319,67 +313,67 @@ pub fn queue_material_polylines(
         polyline_key |= PolylinePipelineKey::from_hdr(view.hdr);
 
         for visible_entity in &visible_entities.entities {
-            if let Ok((material_handle, polyline_uniform)) = material_meshes.get(*visible_entity) {
-                if let Some(material) = render_materials.get(material_handle) {
-                    if material.alpha_mode == AlphaMode::Blend {
-                        polyline_key |= PolylinePipelineKey::TRANSPARENT_MAIN_PASS
-                    }
-                    if material.perspective {
-                        polyline_key |= PolylinePipelineKey::PERSPECTIVE
-                    }
-                    let pipeline_id =
-                        pipelines.specialize(&pipeline_cache, &material_pipeline, polyline_key);
+            let Ok((material_handle, polyline_uniform)) = material_meshes.get(*visible_entity)
+            else {
+                continue;
+            };
+            let Some(material) = render_materials.get(material_handle) else {
+                continue;
+            };
+            if material.alpha_mode == AlphaMode::Blend {
+                polyline_key |= PolylinePipelineKey::TRANSPARENT_MAIN_PASS
+            }
+            if material.perspective {
+                polyline_key |= PolylinePipelineKey::PERSPECTIVE
+            }
+            let pipeline_id =
+                pipelines.specialize(&pipeline_cache, &material_pipeline, polyline_key);
 
-                    // NOTE: row 2 of the inverse view matrix dotted with column 3 of the model matrix
-                    // gives the z component of translation of the mesh in view space
-                    let polyline_z = inverse_view_row_2.dot(polyline_uniform.transform.col(3));
-                    match material.alpha_mode {
-                        AlphaMode::Opaque => {
-                            opaque_phase.add(Opaque3d {
-                                entity: *visible_entity,
-                                draw_function: draw_opaque,
-                                pipeline: pipeline_id,
-                                // NOTE: Front-to-back ordering for opaque with ascending sort means near should have the
-                                // lowest sort key and getting further away should increase. As we have
-                                // -z in front of the camera, values in view space decrease away from the
-                                // camera. Flipping the sign of mesh_z results in the correct front-to-back ordering
-                                distance: -polyline_z,
-                                batch_range: 0..1,
-                                dynamic_offset: None,
-                            });
-                        }
-                        AlphaMode::Mask(_) => {
-                            alpha_mask_phase.add(AlphaMask3d {
-                                entity: *visible_entity,
-                                draw_function: draw_alpha_mask,
-                                pipeline: pipeline_id,
-                                // NOTE: Front-to-back ordering for alpha mask with ascending sort means near should have the
-                                // lowest sort key and getting further away should increase. As we have
-                                // -z in front of the camera, values in view space decrease away from the
-                                // camera. Flipping the sign of mesh_z results in the correct front-to-back ordering
-                                distance: -polyline_z,
-                                batch_range: 0..1,
-                                dynamic_offset: None,
-                            });
-                        }
-                        AlphaMode::Blend
-                        | AlphaMode::Premultiplied
-                        | AlphaMode::Add
-                        | AlphaMode::Multiply => {
-                            transparent_phase.add(Transparent3d {
-                                entity: *visible_entity,
-                                draw_function: draw_transparent,
-                                pipeline: pipeline_id,
-                                // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the
-                                // lowest sort key and getting closer should increase. As we have
-                                // -z in front of the camera, the largest distance is -far with values increasing toward the
-                                // camera. As such we can just use mesh_z as the distance
-                                distance: polyline_z,
-                                batch_range: 0..1,
-                                dynamic_offset: None,
-                            });
-                        }
-                    }
+            // NOTE: row 2 of the inverse view matrix dotted with column 3 of the model matrix
+            // gives the z component of translation of the mesh in view space
+            let polyline_z = inverse_view_row_2.dot(polyline_uniform.transform.col(3));
+            match material.alpha_mode {
+                AlphaMode::Opaque => {
+                    opaque_phase.add(Opaque3d {
+                        entity: *visible_entity,
+                        draw_function: draw_opaque,
+                        pipeline: pipeline_id,
+                        batch_range: 0..1,
+                        dynamic_offset: None,
+                        // The draw command doesn't use a mesh handle so we don't need an `asset_id`
+                        asset_id: AssetId::invalid(),
+                    });
+                }
+                AlphaMode::Mask(_) => {
+                    alpha_mask_phase.add(AlphaMask3d {
+                        entity: *visible_entity,
+                        draw_function: draw_alpha_mask,
+                        pipeline: pipeline_id,
+                        // NOTE: Front-to-back ordering for alpha mask with ascending sort means near should have the
+                        // lowest sort key and getting further away should increase. As we have
+                        // -z in front of the camera, values in view space decrease away from the
+                        // camera. Flipping the sign of mesh_z results in the correct front-to-back ordering
+                        distance: -polyline_z,
+                        batch_range: 0..1,
+                        dynamic_offset: None,
+                    });
+                }
+                AlphaMode::Blend
+                | AlphaMode::Premultiplied
+                | AlphaMode::Add
+                | AlphaMode::Multiply => {
+                    transparent_phase.add(Transparent3d {
+                        entity: *visible_entity,
+                        draw_function: draw_transparent,
+                        pipeline: pipeline_id,
+                        // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the
+                        // lowest sort key and getting closer should increase. As we have
+                        // -z in front of the camera, the largest distance is -far with values increasing toward the
+                        // camera. As such we can just use mesh_z as the distance
+                        distance: polyline_z,
+                        batch_range: 0..1,
+                        dynamic_offset: None,
+                    });
                 }
             }
         }

@@ -43,16 +43,17 @@ fn setup(
 
     // circular base
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Circle::new(4.0).into()),
-        material: standard_materials.add(Color::WHITE.into()),
+        mesh: meshes.add(Circle::new(4.0)),
+        material: standard_materials.add(Color::WHITE),
         transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2))
             .with_translation(Vec3::new(0.0, -0.5, 0.0)),
         ..default()
     });
     // cube
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Cube { size: 1.0 }.into()),
-        material: standard_materials.add(Color::rgb_u8(124, 144, 255).into()),
+        mesh: meshes.add(Cuboid::from_size(Vec3::ONE)),
+        material: standard_materials.add(Color::rgb_u8(124, 144, 255)),
+        transform: Transform::from_xyz(0.0, 0.0, 0.0),
         ..default()
     });
 
