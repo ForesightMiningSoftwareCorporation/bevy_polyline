@@ -80,7 +80,7 @@ fn setup(
         }),
         material: materials.add(PolylineMaterial {
             width: 5.0,
-            color: Color::RED,
+            color: bevy::color::palettes::css::RED.into(),
             depth_bias: -1.0,
             perspective: false,
         }),
@@ -97,7 +97,7 @@ fn setup(
             }),
             material: materials.add(PolylineMaterial {
                 width: 1.0,
-                color: Color::hsl((bias + 1.0) / 2.0 * 270.0, 1.0, 0.5),
+                color: Color::hsl((bias + 1.0) / 2.0 * 270.0, 1.0, 0.5).to_linear(),
                 depth_bias: bias,
                 perspective: false,
             }),

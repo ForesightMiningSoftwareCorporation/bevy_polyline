@@ -43,8 +43,8 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     let position = positions[vertex.index];
 
     // algorithm based on https://wwwtyro.net/2019/11/18/instanced-lines.html
-    var clip0 = view.view_proj * polyline.model * vec4(vertex.point_a, 1.0);
-    var clip1 = view.view_proj * polyline.model * vec4(vertex.point_b, 1.0);
+    var clip0 = view.clip_from_world * polyline.model * vec4(vertex.point_a, 1.0);
+    var clip1 = view.clip_from_world * polyline.model * vec4(vertex.point_b, 1.0);
 
     // Manual near plane clipping to avoid errors when doing the perspective divide inside this shader.
     clip0 = clip_near_plane(clip0, clip1);

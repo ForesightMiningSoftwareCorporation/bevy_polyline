@@ -33,7 +33,7 @@ fn setup(
         }),
         material: polyline_materials.add(PolylineMaterial {
             width: 2.0,
-            color: Color::RED,
+            color: bevy::color::palettes::css::RED.into(),
             perspective: false,
             // Bias the line toward the camera so the line at the cube-plane intersection is visible
             depth_bias: -0.0002,
@@ -52,7 +52,7 @@ fn setup(
     // cube
     commands.spawn(PbrBundle {
         mesh: meshes.add(Cuboid::from_size(Vec3::ONE)),
-        material: standard_materials.add(Color::rgb_u8(124, 144, 255)),
+        material: standard_materials.add(Color::srgb_u8(124, 144, 255)),
         transform: Transform::from_xyz(0.0, 0.0, 0.0),
         ..default()
     });

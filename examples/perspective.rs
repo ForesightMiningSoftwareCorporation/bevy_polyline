@@ -21,7 +21,7 @@ fn setup(
         }),
         material: polyline_materials.add(PolylineMaterial {
             width: 10.0,
-            color: Color::RED,
+            color: bevy::color::palettes::css::RED.into(),
             perspective: true,
             ..default()
         }),

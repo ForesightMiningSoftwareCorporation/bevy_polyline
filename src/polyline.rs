@@ -1,6 +1,5 @@
 use crate::material::PolylineMaterial;
 use bevy::{
-    core::cast_slice,
     ecs::{
         query::ROQueryItem,
         system::{
@@ -12,7 +11,7 @@ use bevy::{
     reflect::TypePath,
     render::{
         extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
-        render_asset::{RenderAsset, RenderAssetPlugin, RenderAssetUsages, RenderAssets},
+        render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
         render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
         render_resource::{binding_types::uniform_buffer, *},
         renderer::RenderDevice,
@@ -27,7 +26,7 @@ pub struct PolylineBasePlugin;
 impl Plugin for PolylineBasePlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<Polyline>()
-            .add_plugins(RenderAssetPlugin::<Polyline>::default());
+            .add_plugins(RenderAssetPlugin::<GpuPolyline>::default());
     }
 }
 
@@ -69,20 +68,16 @@ pub struct Polyline {
     pub vertices: Vec<Vec3>,
 }
 
-impl RenderAsset for Polyline {
-    type PreparedAsset = GpuPolyline;
+impl RenderAsset for GpuPolyline {
+    type SourceAsset = Polyline;
 
     type Param = SRes<RenderDevice>;
 
-    fn asset_usage(&self) -> RenderAssetUsages {
-        RenderAssetUsages::default()
-    }
-
     fn prepare_asset(
-        self,
+        polyline: Self::SourceAsset,
         render_device: &mut bevy::ecs::system::SystemParamItem<Self::Param>,
-    ) -> Result<Self::PreparedAsset, bevy::render::render_asset::PrepareAssetError<Self>> {
-        let vertex_buffer_data = cast_slice(self.vertices.as_slice());
+    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+        let vertex_buffer_data = bytemuck::cast_slice(polyline.vertices.as_slice());
         let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
             label: Some("Polyline Vertex Buffer"),
@@ -91,7 +86,7 @@ impl RenderAsset for Polyline {
 
         Ok(GpuPolyline {
             vertex_buffer,
-            vertex_count: self.vertices.len() as u32,
+            vertex_count: polyline.vertices.len() as u32,
         })
     }
 }
@@ -319,13 +314,15 @@ pub fn prepare_polyline_bind_group(
     render_device: Res<RenderDevice>,
     polyline_uniforms: Res<ComponentUniforms<PolylineUniform>>,
 ) {
-    commands.insert_resource(PolylineBindGroup {
-        value: render_device.create_bind_group(
-            Some("polyline_bind_group"),
-            &polyline_pipeline.polyline_layout,
-            &BindGroupEntries::single(polyline_uniforms.uniforms()),
-        ),
-    });
+    if let Some(binding) = polyline_uniforms.uniforms().binding() {
+        commands.insert_resource(PolylineBindGroup {
+            value: render_device.create_bind_group(
+                Some("polyline_bind_group"),
+                &polyline_pipeline.polyline_layout,
+                &BindGroupEntries::single(binding),
+            ),
+        });
+    }
 }
 
 #[derive(Component)]
@@ -380,7 +377,7 @@ pub struct DrawPolyline;
 impl<P: PhaseItem> RenderCommand<P> for DrawPolyline {
     type ViewQuery = ();
     type ItemQuery = Read<Handle<Polyline>>;
-    type Param = SRes<RenderAssets<Polyline>>;
+    type Param = SRes<RenderAssets<GpuPolyline>>;
 
     #[inline]
     fn render<'w>(
