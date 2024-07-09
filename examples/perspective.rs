@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{color::palettes::css::RED, prelude::*};
 use bevy_polyline::prelude::*;
 
 fn main() {
@@ -21,7 +21,7 @@ fn setup(
         }),
         material: polyline_materials.add(PolylineMaterial {
             width: 10.0,
-            color: bevy::color::palettes::css::RED.into(),
+            color: RED.into(),
             perspective: true,
             ..default()
         }),

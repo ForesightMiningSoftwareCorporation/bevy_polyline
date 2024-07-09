@@ -1,6 +1,7 @@
 use std::f32::consts::TAU;
 use std::f64::consts::TAU as TAU64;
 
+use bevy::color::palettes::css::RED;
 use bevy::prelude::*;
 use bevy_polyline::prelude::*;
 
@@ -80,7 +81,7 @@ fn setup(
         }),
         material: materials.add(PolylineMaterial {
             width: 5.0,
-            color: bevy::color::palettes::css::RED.into(),
+            color: RED.into(),
             depth_bias: -1.0,
             perspective: false,
         }),
