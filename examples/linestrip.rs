@@ -1,4 +1,4 @@
-use bevy::{pbr::PointLightBundle, prelude::*};
+use bevy::{color::palettes::css::RED, pbr::PointLightBundle, prelude::*};
 use bevy_polyline::prelude::*;
 
 fn main() {
@@ -33,7 +33,7 @@ fn setup(
         }),
         material: polyline_materials.add(PolylineMaterial {
             width: 2.0,
-            color: bevy::color::palettes::css::RED.into(),
+            color: RED.into(),
             perspective: false,
             // Bias the line toward the camera so the line at the cube-plane intersection is visible
             depth_bias: -0.0002,
