@@ -292,18 +292,13 @@ pub fn queue_material_polylines(
     mut alpha_mask_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transparent_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
 ) {
-    let draw_opaque = opaque_draw_functions
-        .read()
-        .get_id::<DrawPolylineMaterial>()
-        .unwrap();
+    let draw_opaque = opaque_draw_functions.read().id::<DrawPolylineMaterial>();
     let draw_alpha_mask = alpha_mask_draw_functions
         .read()
-        .get_id::<DrawPolylineMaterial>()
-        .unwrap();
+        .id::<DrawPolylineMaterial>();
     let draw_transparent = transparent_draw_functions
         .read()
-        .get_id::<DrawPolylineMaterial>()
-        .unwrap();
+        .id::<DrawPolylineMaterial>();
 
     for (view_entity, view, visible_entities) in &views {
         let inverse_view_matrix = view.world_from_view.compute_matrix().inverse();
@@ -337,9 +332,6 @@ pub fn queue_material_polylines(
                 continue;
             };
 
-            // NOTE: row 2 of the inverse view matrix dotted with column 3 of the model matrix
-            // gives the z component of translation of the mesh in view space
-            let polyline_z = inverse_view_row_2.dot(polyline_uniform.transform.col(3));
             match material.alpha_mode {
                 AlphaMode::Opaque => {
                     opaque_phase.add(
@@ -371,6 +363,9 @@ pub fn queue_material_polylines(
                 | AlphaMode::Premultiplied
                 | AlphaMode::Add
                 | AlphaMode::Multiply => {
+                    // NOTE: row 2 of the inverse view matrix dotted with column 3 of the model matrix
+                    // gives the z component of translation of the mesh in view space
+                    let polyline_z = inverse_view_row_2.dot(polyline_uniform.transform.col(3));
                     transparent_phase.add(Transparent3d {
                         entity: *visible_entity,
                         draw_function: draw_transparent,
