@@ -269,7 +269,7 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetMaterialBindGroup<I> 
         };
         pass.set_bind_group(
             I,
-            PolylineMaterial::bind_group(&material),
+            PolylineMaterial::bind_group(material),
             PolylineMaterial::dynamic_uniform_indices(material),
         );
         RenderCommandResult::Success
