@@ -319,13 +319,15 @@ pub fn prepare_polyline_bind_group(
     render_device: Res<RenderDevice>,
     polyline_uniforms: Res<ComponentUniforms<PolylineUniform>>,
 ) {
-    commands.insert_resource(PolylineBindGroup {
-        value: render_device.create_bind_group(
-            Some("polyline_bind_group"),
-            &polyline_pipeline.polyline_layout,
-            &BindGroupEntries::single(polyline_uniforms.uniforms()),
-        ),
-    });
+    if let Some(binding) = polyline_uniforms.uniforms().binding() {
+        commands.insert_resource(PolylineBindGroup {
+            value: render_device.create_bind_group(
+                Some("polyline_bind_group"),
+                &polyline_pipeline.polyline_layout,
+                &BindGroupEntries::single(binding),
+            ),
+        });
+    }
 }
 
 #[derive(Component)]
