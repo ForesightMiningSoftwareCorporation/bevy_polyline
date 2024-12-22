@@ -16,27 +16,28 @@ fn setup(
     mut polylines: ResMut<Assets<Polyline>>,
 ) {
     commands.spawn(PolylineBundle {
-        polyline: polylines.add(Polyline {
+        polyline: PolylineHandle(polylines.add(Polyline {
             vertices: vec![-Vec3::ONE, Vec3::ONE],
-        }),
-        material: polyline_materials.add(PolylineMaterial {
+        })),
+        material: PolylineMaterialHandle(polyline_materials.add(PolylineMaterial {
             width: 10.0,
             color: RED.into(),
             perspective: true,
             ..default()
-        }),
+        })),
         ..default()
     });
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 0.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
-        camera: Camera {
+    commands.spawn((
+        Camera3d::default(),
+        Msaa::Sample4,
+        Transform::from_xyz(0.0, 0.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Camera {
             hdr: true,
             ..default()
         },
-        ..default()
-    });
+    ));
 }
 
 fn move_camera(
@@ -65,7 +66,7 @@ fn move_camera(
         if keyboard_input.pressed(KeyCode::KeyE) {
             dir.y += 1.0;
         }
-        t.translation += dir * time.delta_seconds() * speed;
+        t.translation += dir * time.delta_secs() * speed;
     }
 }
 

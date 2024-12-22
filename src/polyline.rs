@@ -1,4 +1,4 @@
-use crate::material::PolylineMaterial;
+use crate::material::PolylineMaterialHandle;
 use bevy::{
     ecs::{
         query::ROQueryItem,
@@ -15,7 +15,6 @@ use bevy::{
         render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
         render_resource::{binding_types::uniform_buffer, *},
         renderer::RenderDevice,
-        texture::BevyDefault,
         view::{ViewUniform, ViewUniforms},
         Extract, Render, RenderApp, RenderSet,
     },
@@ -52,8 +51,8 @@ impl Plugin for PolylineRenderPlugin {
 
 #[derive(Bundle, Default)]
 pub struct PolylineBundle {
-    pub polyline: Handle<Polyline>,
-    pub material: Handle<PolylineMaterial>,
+    pub polyline: PolylineHandle,
+    pub material: PolylineMaterialHandle,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     /// User indication of whether an entity is visible
@@ -67,6 +66,9 @@ pub struct PolylineBundle {
 pub struct Polyline {
     pub vertices: Vec<Vec3>,
 }
+
+#[derive(Debug, Clone, Default, Component)]
+pub struct PolylineHandle(pub Handle<Polyline>);
 
 impl RenderAsset for GpuPolyline {
     type SourceAsset = Polyline;
@@ -112,7 +114,7 @@ pub fn extract_polylines(
             &InheritedVisibility,
             &ViewVisibility,
             &GlobalTransform,
-            &Handle<Polyline>,
+            &PolylineHandle,
         )>,
     >,
 ) {
@@ -122,7 +124,7 @@ pub fn extract_polylines(
             continue;
         }
         let transform = transform.compute_matrix();
-        values.push((entity, (handle.clone_weak(), PolylineUniform { transform })));
+        values.push((entity, (PolylineHandle(handle.0.clone_weak()), PolylineUniform { transform })));
     }
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);
@@ -259,6 +261,7 @@ impl SpecializedRenderPipeline for PolylinePipeline {
             },
             label: Some(label),
             push_constant_ranges: vec![],
+            zero_initialize_workgroup_memory: true,
         }
     }
 }
@@ -363,7 +366,7 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetPolylineBindGroup<I> 
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let Some(dynamic_index) = polyline_index else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Failure("polyline_index is None");
         };
         pass.set_bind_group(I, &bind_group.into_inner().value, &[dynamic_index.index()]);
         RenderCommandResult::Success
@@ -373,7 +376,7 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetPolylineBindGroup<I> 
 pub struct DrawPolyline;
 impl<P: PhaseItem> RenderCommand<P> for DrawPolyline {
     type ViewQuery = ();
-    type ItemQuery = Read<Handle<Polyline>>;
+    type ItemQuery = Read<PolylineHandle>;
     type Param = SRes<RenderAssets<GpuPolyline>>;
 
     #[inline]
@@ -384,7 +387,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawPolyline {
         polylines: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        if let Some(gpu_polyline) = polylines.into_inner().get(pl_handle.unwrap()) {
+        if let Some(gpu_polyline) = polylines.into_inner().get(&pl_handle.unwrap().0) {
             if gpu_polyline.vertex_count < 2 {
                 return RenderCommandResult::Success;
             }
@@ -399,7 +402,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawPolyline {
 
             RenderCommandResult::Success
         } else {
-            RenderCommandResult::Failure
+            RenderCommandResult::Failure("Error loading gpu polyline")
         }
     }
 }
