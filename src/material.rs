@@ -16,16 +16,15 @@ use bevy::{
         },
     },
     prelude::*,
-    reflect::TypePath,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
         render_phase::*,
         render_resource::{binding_types::uniform_buffer, *},
         renderer::{RenderDevice, RenderQueue},
-        sync_world::MainEntity,
         view::{
-            check_visibility, ExtractedView, ViewUniformOffset, VisibilitySystems, VisibleEntities,
+            check_visibility, ExtractedView, RenderVisibleEntities, ViewUniformOffset,
+            VisibilitySystems,
         },
         Render, RenderApp, RenderSet,
     },
@@ -290,8 +289,7 @@ pub fn queue_material_polylines(
     pipeline_cache: Res<PipelineCache>,
     render_materials: Res<RenderAssets<GpuPolylineMaterial>>,
     material_meshes: Query<(&PolylineMaterialHandle, &PolylineUniform)>,
-    views: Query<(Entity, &ExtractedView, &VisibleEntities, &Msaa)>,
-    main_entities: Query<&MainEntity>,
+    views: Query<(Entity, &ExtractedView, &RenderVisibleEntities, &Msaa)>,
     mut opaque_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     mut alpha_mask_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transparent_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
@@ -310,11 +308,7 @@ pub fn queue_material_polylines(
 
         let mut polyline_key = PolylinePipelineKey::from_msaa_samples(msaa.samples());
         polyline_key |= PolylinePipelineKey::from_hdr(view.hdr);
-
-        for visible_entity in visible_entities.get::<WithPolyline>() {
-            let Ok(visible_main_entity) = main_entities.get(*visible_entity) else {
-                continue;
-            };
+        for (visible_entity, visible_main_entity) in visible_entities.get::<WithPolyline>() {
             let Ok((material_handle, polyline_uniform)) = material_meshes.get(*visible_entity)
             else {
                 continue;

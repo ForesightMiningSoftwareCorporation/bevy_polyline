@@ -15,6 +15,7 @@ use bevy::{
         render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
         render_resource::{binding_types::uniform_buffer, *},
         renderer::RenderDevice,
+        sync_world::{RenderEntity, SyncToRenderWorld},
         view::{ViewUniform, ViewUniforms},
         Extract, Render, RenderApp, RenderSet,
     },
@@ -68,6 +69,7 @@ pub struct Polyline {
 }
 
 #[derive(Debug, Clone, Default, Component)]
+#[require(SyncToRenderWorld)]
 pub struct PolylineHandle(pub Handle<Polyline>);
 
 impl RenderAsset for GpuPolyline {
@@ -110,7 +112,7 @@ pub fn extract_polylines(
     mut previous_len: Local<usize>,
     query: Extract<
         Query<(
-            Entity,
+            RenderEntity,
             &InheritedVisibility,
             &ViewVisibility,
             &GlobalTransform,
@@ -124,7 +126,13 @@ pub fn extract_polylines(
             continue;
         }
         let transform = transform.compute_matrix();
-        values.push((entity, (PolylineHandle(handle.0.clone_weak()), PolylineUniform { transform })));
+        values.push((
+            entity,
+            (
+                PolylineHandle(handle.0.clone_weak()),
+                PolylineUniform { transform },
+            ),
+        ));
     }
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);

@@ -1,7 +1,7 @@
 [package]
 edition = "2021"
 name = "bevy_polyline"
-version = "0.10.0"
+version = "0.11.0"
 description = "Polyline Rendering for Bevy"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/ForesightMiningSoftwareCorporation/bevy_polyline"
@@ -30,6 +30,7 @@ lazy_static = "1.4.0"
 rand = "0.8.4"
 ringbuffer = "0.15"
 bevy = { version = "0.15", default-features = false, features = [
+    "bevy_window",
     "bevy_winit",
     "bevy_pbr",
     "x11",
