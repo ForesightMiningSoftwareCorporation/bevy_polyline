@@ -2,9 +2,11 @@
 #![allow(clippy::too_many_arguments)]
 
 use bevy::{asset::load_internal_asset, prelude::*};
+use clipping::PolylineClippingPlugin;
 use material::PolylineMaterialPlugin;
 use polyline::{PolylineBasePlugin, PolylineRenderPlugin};
 
+pub mod clipping;
 pub mod material;
 pub mod polyline;
 
@@ -29,6 +31,7 @@ impl Plugin for PolylinePlugin {
         app.add_plugins((
             PolylineBasePlugin,
             PolylineRenderPlugin,
+            PolylineClippingPlugin,
             PolylineMaterialPlugin,
         ));
     }

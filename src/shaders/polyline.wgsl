@@ -19,6 +19,14 @@ struct PolylineMaterial {
 @group(2) @binding(0)
 var<uniform> material: PolylineMaterial;
 
+struct HalfSpaces {
+    count: vec4<u32>, // Make the count a vec4, to make alignment easier
+    planes: array<vec4<f32>, 10>,
+};
+
+@group(3) @binding(0)
+var<uniform> half_spaces: HalfSpaces;
+
 struct Vertex {
     @location(0) point_a: vec3<f32>,
     @location(1) point_b: vec3<f32>,
@@ -28,6 +36,7 @@ struct Vertex {
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) color: vec4<f32>,
+    @location(1) world_position: vec4<f32>,
 };
 
 @vertex
@@ -84,14 +93,18 @@ fn vertex(vertex: Vertex) -> VertexOutput {
         // depth * (clip.w / depth)^-depth_bias. So that when -depth_bias is 1.0, this is equal to clip.w
         // and when equal to 0.0, it is exactly equal to depth.
         // the epsilon is here to prevent the depth from exceeding clip.w when -depth_bias = 1.0
-        // clip.w represents the near plane in homogenous clip space in bevy, having a depth
+        // clip.w represents the near plane in homogeneous clip space in bevy, having a depth
         // of this value means nothing can be in front of this
         // The reason this uses an exponential function is that it makes it much easier for the
-        // user to chose a value that is convinient for them
+        // user to choose a value that is convenient for them
         depth = depth * exp2(-material.depth_bias * log2(clip.w / depth - epsilon));
     }
 
-    return VertexOutput(vec4(clip.w * ((2.0 * pt) / resolution - 1.0), depth, clip.w), color);
+    return VertexOutput(
+        vec4(clip.w * ((2.0 * pt) / resolution - 1.0), depth, clip.w), 
+        color, 
+        polyline.model * vec4(mix(vertex.point_a, vertex.point_b, position.z), 1.0),
+    );
 }
 
 fn clip_near_plane(a: vec4<f32>, b: vec4<f32>) -> vec4<f32> {
@@ -107,10 +120,22 @@ fn clip_near_plane(a: vec4<f32>, b: vec4<f32>) -> vec4<f32> {
 }
 
 struct FragmentInput {
+    @builtin(position) clip_position: vec4<f32>,
     @location(0) color: vec4<f32>,
+    @location(1) world_position: vec4<f32>,
 };
 
 @fragment
 fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
+    #ifdef POLYLINE_CLIPPING
+        for(var i: u32 = 0u; i < half_spaces.count[0]; i++) {
+            let plane = half_spaces.planes[i];
+            let distance = dot(plane.xyz, in.world_position.xyz) + plane.w;
+            if (distance < 0.0) {
+                discard;
+            }
+        }
+    #endif
+
     return in.color;
 }

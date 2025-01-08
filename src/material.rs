@@ -1,6 +1,9 @@
-use crate::polyline::{
-    DrawPolyline, PolylinePipeline, PolylinePipelineKey, PolylineUniform, PolylineViewBindGroup,
-    SetPolylineBindGroup,
+use crate::{
+    clipping::HalfSpacesUniform,
+    polyline::{
+        DrawPolyline, PolylinePipeline, PolylinePipelineKey, PolylineUniform,
+        PolylineViewBindGroup, SetPolylineBindGroup,
+    },
 };
 
 use bevy::{
@@ -61,6 +64,13 @@ pub struct PolylineMaterial {
     ///
     /// Note that `depth_bias` **does not** interact with this in any way.
     pub perspective: bool,
+    /// Whether to clip this polyline with the half spaces defined in
+    /// [`ClippingSettings`](crate::clipping::ClippingSettings).
+    ///
+    /// When `enable_clipping` is `true`, the polyline will only be drawn until
+    /// the point it intersects with a half space defined in the clipping
+    /// settings.
+    pub enable_clipping: bool,
 }
 
 impl Default for PolylineMaterial {
@@ -70,6 +80,7 @@ impl Default for PolylineMaterial {
             color: Color::WHITE.to_linear(),
             depth_bias: 0.0,
             perspective: false,
+            enable_clipping: false,
         }
     }
 }
@@ -107,6 +118,7 @@ pub struct PolylineMaterialUniform {
 pub struct GpuPolylineMaterial {
     pub buffer: UniformBuffer<PolylineMaterialUniform>,
     pub perspective: bool,
+    pub enable_clipping: bool,
     pub bind_group: BindGroup,
     pub alpha_mode: AlphaMode,
 }
@@ -151,6 +163,7 @@ impl RenderAsset for GpuPolylineMaterial {
         Ok(GpuPolylineMaterial {
             buffer,
             perspective: polyline_material.perspective,
+            enable_clipping: polyline_material.enable_clipping,
             alpha_mode,
             bind_group,
         })
@@ -191,16 +204,33 @@ impl Plugin for PolylineMaterialPlugin {
 pub struct PolylineMaterialPipeline {
     pub polyline_pipeline: PolylinePipeline,
     pub material_layout: BindGroupLayout,
+    pub half_spaces_layout: BindGroupLayout,
 }
 
 impl FromWorld for PolylineMaterialPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.get_resource::<RenderDevice>().unwrap();
         let material_layout = PolylineMaterial::bind_group_layout(render_device);
+
+        let half_spaces_layout = render_device.create_bind_group_layout(
+            "half_spaces_layout",
+            &[BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+        );
+
         let pipeline = world.get_resource::<PolylinePipeline>().unwrap();
         PolylineMaterialPipeline {
             polyline_pipeline: pipeline.to_owned(),
             material_layout,
+            half_spaces_layout,
         }
     }
 }
@@ -215,10 +245,16 @@ impl SpecializedRenderPipeline for PolylineMaterialPipeline {
                 .shader_defs
                 .push("POLYLINE_PERSPECTIVE".into());
         }
+        if key.contains(PolylinePipelineKey::CLIPPING) {
+            if let Some(fragment_state) = descriptor.fragment.as_mut() {
+                fragment_state.shader_defs.push("POLYLINE_CLIPPING".into());
+            }
+        }
         descriptor.layout = vec![
             self.polyline_pipeline.view_layout.clone(),
             self.polyline_pipeline.polyline_layout.clone(),
             self.material_layout.clone(),
+            self.half_spaces_layout.clone(),
         ];
         descriptor
     }
@@ -229,6 +265,7 @@ type DrawPolylineMaterial = (
     SetPolylineViewBindGroup<0>,
     SetPolylineBindGroup<1>,
     SetMaterialBindGroup<2>,
+    SetHalfSpacesBindGroup<3>,
     DrawPolyline,
 );
 
@@ -276,6 +313,24 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetMaterialBindGroup<I> 
     }
 }
 
+pub struct SetHalfSpacesBindGroup<const I: usize>;
+impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetHalfSpacesBindGroup<I> {
+    type ViewQuery = ();
+    type ItemQuery = ();
+    type Param = SRes<HalfSpacesUniform>;
+
+    fn render<'w>(
+        _item: &P,
+        _view: ROQueryItem<'w, Self::ViewQuery>,
+        _entity: Option<ROQueryItem<'w, Self::ItemQuery>>,
+        half_spaces: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        pass.set_bind_group(I, &half_spaces.into_inner().bind_group, &[]);
+        RenderCommandResult::Success
+    }
+}
+
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn queue_material_polylines(
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
@@ -304,10 +359,10 @@ pub fn queue_material_polylines(
         let inverse_view_matrix = view.world_from_view.compute_matrix().inverse();
         let inverse_view_row_2 = inverse_view_matrix.row(2);
 
-        let mut polyline_key = PolylinePipelineKey::from_msaa_samples(msaa.samples());
-        polyline_key |= PolylinePipelineKey::from_hdr(view.hdr);
-
         for visible_entity in visible_entities.get::<WithPolyline>() {
+            let mut polyline_key = PolylinePipelineKey::from_msaa_samples(msaa.samples());
+            polyline_key |= PolylinePipelineKey::from_hdr(view.hdr);
+
             let Ok((material_handle, polyline_uniform)) = material_meshes.get(*visible_entity)
             else {
                 continue;
@@ -320,6 +375,9 @@ pub fn queue_material_polylines(
             }
             if material.perspective {
                 polyline_key |= PolylinePipelineKey::PERSPECTIVE
+            }
+            if material.enable_clipping {
+                polyline_key |= PolylinePipelineKey::CLIPPING
             }
             let pipeline_id =
                 pipelines.specialize(&pipeline_cache, &material_pipeline, polyline_key);

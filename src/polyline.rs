@@ -273,6 +273,7 @@ bitflags::bitflags! {
         const PERSPECTIVE = (1 << 0);
         const TRANSPARENT_MAIN_PASS = (1 << 1);
         const HDR = (1 << 2);
+        const CLIPPING = (1 << 3);
         const MSAA_RESERVED_BITS = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
     }
 }
