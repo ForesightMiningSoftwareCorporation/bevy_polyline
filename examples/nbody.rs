@@ -1,6 +1,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::Vec3A,
     prelude::*,
@@ -18,7 +19,6 @@ const MINIMUM_ANGLE: f32 = 1.483_418_7; // == acos(5 degrees)
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
-        .insert_resource(Msaa::Sample4)
         .insert_resource(Simulation {
             scale: 1e6,
             ..Default::default()
@@ -59,16 +59,18 @@ fn setup(
             },
             Trail(ConstGenericRingBuffer::<Vec3A, TRAIL_LENGTH>::new()),
             PolylineBundle {
-                polyline: polylines.add(Polyline {
+                polyline: PolylineHandle(polylines.add(Polyline {
                     vertices: Vec::with_capacity(TRAIL_LENGTH),
-                }),
-                material: polyline_materials.add(PolylineMaterial {
-                    width: (size * 0.1).powf(1.8),
-                    color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, rng.gen_range(1.2..3.0))
-                        .to_linear(),
-                    perspective: true,
-                    ..Default::default()
-                }),
+                })),
+                material: PolylineMaterialHandle(
+                    polyline_materials.add(PolylineMaterial {
+                        width: (size * 0.1).powf(1.8),
+                        color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, rng.gen_range(1.2..3.0))
+                            .to_linear(),
+                        perspective: true,
+                        ..Default::default()
+                    }),
+                ),
                 ..Default::default()
             },
         ));
@@ -76,15 +78,14 @@ fn setup(
 
     // camera
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
-            tonemapping: bevy::core_pipeline::tonemapping::Tonemapping::TonyMcMapface,
+        Camera3d::default(),
+        Camera {
+            hdr: true,
             ..default()
         },
-        bevy::core_pipeline::bloom::BloomSettings { ..default() },
+        Msaa::Sample4,
+        Tonemapping::TonyMcMapface,
+        Bloom::default(),
         Rotates,
     ));
 }
@@ -95,7 +96,7 @@ struct Rotates;
 
 fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Rotates>>) {
     for mut transform in query.iter_mut() {
-        let t = time.elapsed_seconds();
+        let t = time.elapsed_secs();
         let r = 1100.0;
         *transform = Transform::from_xyz(
             r * f32::cos(t * 0.1),
@@ -136,7 +137,7 @@ impl Default for Simulation {
 impl Simulation {
     fn update(&mut self, time: &Time) {
         if !self.is_paused {
-            self.accumulator += time.delta_seconds();
+            self.accumulator += time.delta_secs();
         }
     }
 
@@ -157,7 +158,7 @@ const EPSILON: f32 = 1.;
 fn nbody_system(
     time: Res<Time>,
     mut simulation: ResMut<Simulation>,
-    mut query: Query<(Entity, &mut Body, &mut Trail, &Handle<Polyline>)>,
+    mut query: Query<(Entity, &mut Body, &mut Trail, &PolylineHandle)>,
 ) {
     let mut bodies = query.iter_mut().collect::<Vec<_>>();
     // dbg!(&bodies);
@@ -204,7 +205,7 @@ fn nbody_system(
 
 fn update_trails(
     mut polylines: ResMut<Assets<Polyline>>,
-    mut query: Query<(&Body, &mut Trail, &Handle<Polyline>)>,
+    mut query: Query<(&Body, &mut Trail, &PolylineHandle)>,
 ) {
     query.iter_mut().for_each(|(body, mut trail, polyline)| {
         if let Some(position) = trail.0.back() {
@@ -217,14 +218,14 @@ fn update_trails(
             let gt_min_angle = last_vec.dot(last_last_vec) > MINIMUM_ANGLE;
             if gt_min_angle {
                 trail.0.push(body.position);
-                polylines.get_mut(polyline).unwrap().vertices =
+                polylines.get_mut(&polyline.0).unwrap().vertices =
                     trail.0.iter().map(|v| Vec3::from(*v)).collect()
             } else {
                 // If the last point didn't actually add much of a curve, just overwrite it.
-                if polylines.get_mut(polyline).unwrap().vertices.len() > 1 {
+                if polylines.get_mut(&polyline.0).unwrap().vertices.len() > 1 {
                     *trail.0.get_mut_signed(-1).unwrap() = body.position;
                     *polylines
-                        .get_mut(polyline)
+                        .get_mut(&polyline.0)
                         .unwrap()
                         .vertices
                         .last_mut()
@@ -233,7 +234,7 @@ fn update_trails(
             }
         } else {
             trail.0.push(body.position);
-            polylines.get_mut(polyline).unwrap().vertices =
+            polylines.get_mut(&polyline.0).unwrap().vertices =
                 trail.0.iter().map(|v| Vec3::from(*v)).collect()
         }
     });
