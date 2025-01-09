@@ -1,7 +1,10 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::{bloom::Bloom, tonemapping::Tonemapping}, diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin}, math::Vec3A, prelude::*
+    core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
+    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    math::Vec3A,
+    prelude::*,
 };
 use bevy_polyline::prelude::*;
 
@@ -56,16 +59,18 @@ fn setup(
             },
             Trail(ConstGenericRingBuffer::<Vec3A, TRAIL_LENGTH>::new()),
             PolylineBundle {
-                polyline: PolylineHandle( polylines.add(Polyline {
+                polyline: PolylineHandle(polylines.add(Polyline {
                     vertices: Vec::with_capacity(TRAIL_LENGTH),
                 })),
-                material: PolylineMaterialHandle(polyline_materials.add(PolylineMaterial {
-                    width: (size * 0.1).powf(1.8),
-                    color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, rng.gen_range(1.2..3.0))
-                        .to_linear(),
-                    perspective: true,
-                    ..Default::default()
-                })),
+                material: PolylineMaterialHandle(
+                    polyline_materials.add(PolylineMaterial {
+                        width: (size * 0.1).powf(1.8),
+                        color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, rng.gen_range(1.2..3.0))
+                            .to_linear(),
+                        perspective: true,
+                        ..Default::default()
+                    }),
+                ),
                 ..Default::default()
             },
         ));
