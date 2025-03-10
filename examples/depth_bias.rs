@@ -22,7 +22,6 @@ use bevy_polyline::prelude::*;
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
-        .insert_resource(Msaa::Sample4)
         .add_plugins(DefaultPlugins)
         .add_plugins(PolylinePlugin)
         .add_systems(Update, (move_camera, rotate_plane))
@@ -34,7 +33,7 @@ fn main() {
 struct Rotating(f64);
 
 fn rotate_plane(time: Res<Time>, mut animated: Query<(&mut Transform, &Rotating)>) {
-    let time = time.elapsed_seconds_f64();
+    let time = time.elapsed_secs_f64();
     for (mut trans, Rotating(period)) in animated.iter_mut() {
         let angle = time % period / period * TAU64;
         let rot = Quat::from_rotation_y(angle as f32);
@@ -61,31 +60,30 @@ fn setup(
     mut polylines: ResMut<Assets<Polyline>>,
     mut materials: ResMut<Assets<PolylineMaterial>>,
 ) {
-    commands
-        .spawn(Camera3dBundle::default())
-        .insert(Transform::from_xyz(100.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y));
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Cuboid::from_size(Vec3::new(0.01, 100.0, 10000.0)).mesh()),
-            material: pbr_materials.add(Color::WHITE),
-            ..default()
-        },
+        Camera3d::default(),
+        Msaa::Sample4,
+        Transform::from_xyz(100.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::from_size(Vec3::new(0.01, 100.0, 10000.0)).mesh())),
+        MeshMaterial3d(pbr_materials.add(Color::WHITE)),
         Rotating(30.0),
     ));
     let top = Vec3::Y * 100.0;
     let bottom = Vec3::Y * -100.0;
     // Show the middle as a vertical red bar.
     commands.spawn(PolylineBundle {
-        polyline: polylines.add(Polyline {
+        polyline: PolylineHandle(polylines.add(Polyline {
             vertices: vec![top, bottom],
-        }),
-        material: materials.add(PolylineMaterial {
+        })),
+        material: PolylineMaterialHandle(materials.add(PolylineMaterial {
             width: 5.0,
             color: RED.into(),
             depth_bias: -1.0,
             perspective: false,
             ..Default::default()
-        }),
+        })),
         ..Default::default()
     });
     // Draw from bottom to top, red to purple, -1.0 to 1.0 horizontal lines
@@ -94,16 +92,16 @@ fn setup(
         let left = Vec3::new(0.0, bias * 35.0, -500.0);
         let right = Vec3::new(0.0, bias * 35.0, 500.0);
         commands.spawn(PolylineBundle {
-            polyline: polylines.add(Polyline {
+            polyline: PolylineHandle(polylines.add(Polyline {
                 vertices: vec![left, right],
-            }),
-            material: materials.add(PolylineMaterial {
+            })),
+            material: PolylineMaterialHandle(materials.add(PolylineMaterial {
                 width: 1.0,
                 color: Color::hsl((bias + 1.0) / 2.0 * 270.0, 1.0, 0.5).to_linear(),
                 depth_bias: bias,
                 perspective: false,
                 ..Default::default()
-            }),
+            })),
             ..Default::default()
         });
     }

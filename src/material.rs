@@ -1,7 +1,7 @@
 use crate::{
     clipping::HalfSpacesUniform,
     polyline::{
-        DrawPolyline, PolylinePipeline, PolylinePipelineKey, PolylineUniform,
+        DrawPolyline, PolylineHandle, PolylinePipeline, PolylinePipelineKey, PolylineUniform,
         PolylineViewBindGroup, SetPolylineBindGroup,
     },
 };
@@ -19,20 +19,23 @@ use bevy::{
         },
     },
     prelude::*,
-    reflect::TypePath,
     render::{
-        extract_component::ExtractComponentPlugin,
+        extract_component::{ExtractComponent, ExtractComponentPlugin},
         render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
         render_phase::*,
         render_resource::{binding_types::uniform_buffer, *},
         renderer::{RenderDevice, RenderQueue},
         view::{
-            check_visibility, ExtractedView, ViewUniformOffset, VisibilitySystems, VisibleEntities,
+            check_visibility, ExtractedView, RenderVisibleEntities, ViewUniformOffset,
+            VisibilitySystems,
         },
         Render, RenderApp, RenderSet,
     },
 };
 use std::fmt::Debug;
+
+#[derive(Debug, Clone, Default, Component, ExtractComponent)]
+pub struct PolylineMaterialHandle(pub Handle<PolylineMaterial>);
 
 #[derive(Asset, Debug, PartialEq, Clone, Copy, TypePath)]
 pub struct PolylineMaterial {
@@ -170,7 +173,7 @@ impl RenderAsset for GpuPolylineMaterial {
     }
 }
 
-pub type WithPolyline = With<Handle<PolylineMaterial>>;
+pub type WithPolyline = With<PolylineHandle>;
 
 /// Adds the necessary ECS resources and render logic to enable rendering entities using ['PolylineMaterial']
 #[derive(Default)]
@@ -179,7 +182,7 @@ pub struct PolylineMaterialPlugin;
 impl Plugin for PolylineMaterialPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<PolylineMaterial>()
-            .add_plugins(ExtractComponentPlugin::<Handle<PolylineMaterial>>::default())
+            .add_plugins(ExtractComponentPlugin::<PolylineMaterialHandle>::default())
             .add_plugins(RenderAssetPlugin::<GpuPolylineMaterial>::default())
             .add_systems(
                 PostUpdate,
@@ -291,7 +294,7 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetPolylineViewBindGroup
 pub struct SetMaterialBindGroup<const I: usize>;
 impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetMaterialBindGroup<I> {
     type ViewQuery = ();
-    type ItemQuery = Read<Handle<PolylineMaterial>>;
+    type ItemQuery = Read<PolylineMaterialHandle>;
     type Param = SRes<RenderAssets<GpuPolylineMaterial>>;
 
     fn render<'w>(
@@ -301,8 +304,8 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetMaterialBindGroup<I> 
         materials: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let Some(material) = material_handle.and_then(|h| materials.into_inner().get(h)) else {
-            return RenderCommandResult::Failure;
+        let Some(material) = material_handle.and_then(|h| materials.into_inner().get(&h.0)) else {
+            return RenderCommandResult::Failure("Failed to load material");
         };
         pass.set_bind_group(
             I,
@@ -339,10 +342,9 @@ pub fn queue_material_polylines(
     material_pipeline: Res<PolylineMaterialPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<PolylineMaterialPipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    msaa: Res<Msaa>,
     render_materials: Res<RenderAssets<GpuPolylineMaterial>>,
-    material_meshes: Query<(&Handle<PolylineMaterial>, &PolylineUniform)>,
-    views: Query<(Entity, &ExtractedView, &VisibleEntities)>,
+    material_meshes: Query<(&PolylineMaterialHandle, &PolylineUniform)>,
+    views: Query<(Entity, &ExtractedView, &RenderVisibleEntities, &Msaa)>,
     mut opaque_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     mut alpha_mask_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transparent_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
@@ -355,19 +357,18 @@ pub fn queue_material_polylines(
         .read()
         .id::<DrawPolylineMaterial>();
 
-    for (view_entity, view, visible_entities) in &views {
+    for (view_entity, view, visible_entities, msaa) in &views {
         let inverse_view_matrix = view.world_from_view.compute_matrix().inverse();
         let inverse_view_row_2 = inverse_view_matrix.row(2);
 
-        for visible_entity in visible_entities.get::<WithPolyline>() {
-            let mut polyline_key = PolylinePipelineKey::from_msaa_samples(msaa.samples());
-            polyline_key |= PolylinePipelineKey::from_hdr(view.hdr);
-
+        let mut polyline_key = PolylinePipelineKey::from_msaa_samples(msaa.samples());
+        polyline_key |= PolylinePipelineKey::from_hdr(view.hdr);
+        for (visible_entity, visible_main_entity) in visible_entities.get::<WithPolyline>() {
             let Ok((material_handle, polyline_uniform)) = material_meshes.get(*visible_entity)
             else {
                 continue;
             };
-            let Some(material) = render_materials.get(material_handle) else {
+            let Some(material) = render_materials.get(&material_handle.0) else {
                 continue;
             };
             if material.alpha_mode == AlphaMode::Blend {
@@ -401,7 +402,7 @@ pub fn queue_material_polylines(
                             material_bind_group_id: Some(material.bind_group.id()),
                             lightmap_image: None,
                         },
-                        *visible_entity,
+                        (*visible_entity, *visible_main_entity),
                         BinnedRenderPhaseType::NonMesh,
                     );
                 }
@@ -413,7 +414,7 @@ pub fn queue_material_polylines(
                             asset_id: AssetId::<Mesh>::invalid().untyped(),
                             material_bind_group_id: Some(material.bind_group.id()),
                         },
-                        *visible_entity,
+                        (*visible_entity, *visible_main_entity),
                         BinnedRenderPhaseType::NonMesh,
                     );
                 }
@@ -425,7 +426,7 @@ pub fn queue_material_polylines(
                     // gives the z component of translation of the mesh in view space
                     let polyline_z = inverse_view_row_2.dot(polyline_uniform.transform.col(3));
                     transparent_phase.add(Transparent3d {
-                        entity: *visible_entity,
+                        entity: (*visible_entity, *visible_main_entity),
                         draw_function: draw_transparent,
                         pipeline: pipeline_id,
                         // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the
