@@ -28,6 +28,10 @@ struct Vertex {
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) color: vec4<f32>,
+    #ifdef JOINS
+        @location(1) uv: vec2<f32>,
+        @location(2) max_u: f32,
+    #endif
 };
 
 @vertex
@@ -53,10 +57,13 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     let clip = mix(clip0, clip1, position.z);
 
     let resolution = vec2(view.viewport.z, view.viewport.w);
-    let screen0 = resolution * (0.5 * clip0.xy / clip0.w + 0.5);
-    let screen1 = resolution * (0.5 * clip1.xy / clip1.w + 0.5);
+    var screen0 = resolution * (0.5 * clip0.xy / clip0.w + 0.5);
+    var screen1 = resolution * (0.5 * clip1.xy / clip1.w + 0.5);
 
-    let x_basis = normalize(screen1 - screen0);
+    let diff = screen1 - screen0;
+    let len = length(diff);
+
+    let x_basis = diff / len;
     let y_basis = vec2(-x_basis.y, x_basis.x);
 
     var line_width = material.width;
@@ -69,6 +76,16 @@ fn vertex(vertex: Vertex) -> VertexOutput {
             color.a *= line_width;
             line_width = 1.0;
         }
+    #endif
+
+    // low-poly join technique similar to
+    // https://www.researchgate.net/publication/220200701_High-Quality_Cartographic_Roads_on_High-Resolution_DEMs
+    #ifdef JOINS
+        screen0 = screen0 - x_basis * line_width / 2.0;
+        screen1 = screen1 + x_basis * line_width / 2.0;
+
+        let max_u = 1.0 + line_width / len;
+        let uv = vec2((2.0 * position.z - 1.0) * max_u, position.y * 2.0);
     #endif
 
     let pt_offset = line_width * (position.x * x_basis + position.y * y_basis);
@@ -91,7 +108,11 @@ fn vertex(vertex: Vertex) -> VertexOutput {
         depth = depth * exp2(-material.depth_bias * log2(clip.w / depth - epsilon));
     }
 
-    return VertexOutput(vec4(clip.w * ((2.0 * pt) / resolution - 1.0), depth, clip.w), color);
+    #ifdef JOINS
+        return VertexOutput(vec4(clip.w * ((2.0 * pt) / resolution - 1.0), depth, clip.w), color, uv, max_u - 1.0);
+    #else
+        return VertexOutput(vec4(clip.w * ((2.0 * pt) / resolution - 1.0), depth, clip.w), color);
+    #endif
 }
 
 fn clip_near_plane(a: vec4<f32>, b: vec4<f32>) -> vec4<f32> {
@@ -108,9 +129,25 @@ fn clip_near_plane(a: vec4<f32>, b: vec4<f32>) -> vec4<f32> {
 
 struct FragmentInput {
     @location(0) color: vec4<f32>,
+    #ifdef JOINS
+        @location(1) uv: vec2<f32>,
+        @location(2) max_u: f32,
+    #endif
 };
 
 @fragment
 fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
+    #ifdef JOINS
+        if ( abs( in.uv.x ) > 1.0 ) {
+            let a = in.uv.y;
+            let b = select(in.uv.x + 1.0, in.uv.x - 1.0, in.uv.x > 0.0) / in.max_u;
+            let len2 = a * a + b * b;
+
+            if ( len2 > 1.0 ) {
+                discard;
+            }
+        }
+    #endif
+
     return in.color;
 }
