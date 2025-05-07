@@ -87,7 +87,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
         // clip.w represents the near plane in homogenous clip space in bevy, having a depth
         // of this value means nothing can be in front of this
         // The reason this uses an exponential function is that it makes it much easier for the
-        // user to chose a value that is convinient for them
+        // user to chose a value that is convenient for them
         depth = depth * exp2(-material.depth_bias * log2(clip.w / depth - epsilon));
     }
 
