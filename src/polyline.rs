@@ -16,7 +16,7 @@ use bevy::{
         render_resource::{binding_types::uniform_buffer, *},
         renderer::RenderDevice,
         sync_world::{RenderEntity, SyncToRenderWorld},
-        view::{ViewUniform, ViewUniforms},
+        view::{self, ViewUniform, ViewUniforms, VisibilityClass},
         Extract, Render, RenderApp, RenderSet,
     },
 };
@@ -69,7 +69,8 @@ pub struct Polyline {
 }
 
 #[derive(Debug, Clone, Default, Component)]
-#[require(SyncToRenderWorld)]
+#[require(SyncToRenderWorld, VisibilityClass)]
+#[component(on_add = view::add_visibility_class::<PolylineHandle>)]
 pub struct PolylineHandle(pub Handle<Polyline>);
 
 impl RenderAsset for GpuPolyline {
@@ -79,6 +80,7 @@ impl RenderAsset for GpuPolyline {
 
     fn prepare_asset(
         polyline: Self::SourceAsset,
+        _: AssetId<Self::SourceAsset>,
         render_device: &mut bevy::ecs::system::SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let vertex_buffer_data = bytemuck::cast_slice(polyline.vertices.as_slice());
@@ -135,7 +137,7 @@ pub fn extract_polylines(
         ));
     }
     *previous_len = values.len();
-    commands.insert_or_spawn_batch(values);
+    commands.try_insert_batch(values);
 }
 
 #[derive(Clone, Resource)]
