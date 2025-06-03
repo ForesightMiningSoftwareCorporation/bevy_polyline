@@ -30,7 +30,10 @@ fn main() {
             Update,
             ((nbody_system, update_trails).chain(), rotator_system),
         )
-        .add_plugins(FrameTimeDiagnosticsPlugin)
+        .add_plugins(FrameTimeDiagnosticsPlugin {
+            smoothing_factor: 0.5,
+            max_history_length: 100,
+        })
         .add_plugins(LogDiagnosticsPlugin::default())
         .run();
 }
@@ -42,14 +45,14 @@ fn setup(
 ) {
     let mut rng = StdRng::seed_from_u64(0);
     for _index in 0..NUM_BODIES {
-        let r = rng.gen_range(2f32..800f32);
-        let theta = rng.gen_range(0f32..2.0 * PI);
+        let r = rng.random_range(2f32..800f32);
+        let theta = rng.random_range(0f32..2.0 * PI);
         let position = Vec3A::new(
             r * f32::cos(theta),
-            rng.gen_range(-500f32..500f32),
+            rng.random_range(-500f32..500f32),
             r * f32::sin(theta),
         );
-        let size = rng.gen_range(50f32..1000f32);
+        let size = rng.random_range(50f32..1000f32);
         commands.spawn((
             Body {
                 mass: size,
@@ -65,8 +68,12 @@ fn setup(
                 material: PolylineMaterialHandle(
                     polyline_materials.add(PolylineMaterial {
                         width: (size * 0.1).powf(1.8),
-                        color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, rng.gen_range(1.2..3.0))
-                            .to_linear(),
+                        color: Color::hsl(
+                            rng.random_range(0.0..360.0),
+                            1.0,
+                            rng.random_range(1.2..3.0),
+                        )
+                        .to_linear(),
                         perspective: true,
                         ..Default::default()
                     }),

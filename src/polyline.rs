@@ -79,6 +79,7 @@ impl RenderAsset for GpuPolyline {
 
     fn prepare_asset(
         polyline: Self::SourceAsset,
+        _id: AssetId<Self::SourceAsset>,
         render_device: &mut bevy::ecs::system::SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let vertex_buffer_data = bytemuck::cast_slice(polyline.vertices.as_slice());

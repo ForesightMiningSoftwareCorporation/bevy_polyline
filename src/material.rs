@@ -5,10 +5,11 @@ use crate::polyline::{
 
 use bevy::{
     core_pipeline::{
-        core_3d::{AlphaMask3d, Opaque3d, Opaque3dBinKey, Transparent3d},
-        prepass::OpaqueNoLightmap3dBinKey,
+        core_3d::{AlphaMask3d, Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, Transparent3d},
+        prepass::{OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey},
     },
     ecs::{
+        component::Tick,
         query::ROQueryItem,
         system::{
             lifetimeless::{Read, SRes},
@@ -22,10 +23,7 @@ use bevy::{
         render_phase::*,
         render_resource::{binding_types::uniform_buffer, *},
         renderer::{RenderDevice, RenderQueue},
-        view::{
-            check_visibility, ExtractedView, RenderVisibleEntities, ViewUniformOffset,
-            VisibilitySystems,
-        },
+        view::{ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewUniformOffset},
         Render, RenderApp, RenderSet,
     },
 };
@@ -124,6 +122,7 @@ impl RenderAsset for GpuPolylineMaterial {
 
     fn prepare_asset(
         polyline_material: Self::SourceAsset,
+        _id: AssetId<Self::SourceAsset>,
         (device, queue, polyline_pipeline): &mut bevy::ecs::system::SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let value = PolylineMaterialUniform {
@@ -170,11 +169,11 @@ impl Plugin for PolylineMaterialPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<PolylineMaterial>()
             .add_plugins(ExtractComponentPlugin::<PolylineMaterialHandle>::default())
-            .add_plugins(RenderAssetPlugin::<GpuPolylineMaterial>::default())
-            .add_systems(
-                PostUpdate,
-                check_visibility::<WithPolyline>.in_set(VisibilitySystems::CheckVisibility),
-            );
+            .add_plugins(RenderAssetPlugin::<GpuPolylineMaterial>::default());
+        // .add_systems(
+        //     PostUpdate,
+        //     check_visibility.in_set(VisibilitySystems::CheckVisibility),
+        // );
     }
 
     fn finish(&self, app: &mut App) {
@@ -293,6 +292,7 @@ pub fn queue_material_polylines(
     mut opaque_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     mut alpha_mask_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transparent_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
+    mut change_tick: Local<Tick>,
 ) {
     let draw_opaque = opaque_draw_functions.read().id::<DrawPolylineMaterial>();
     let draw_alpha_mask = alpha_mask_draw_functions
@@ -301,6 +301,10 @@ pub fn queue_material_polylines(
     let draw_transparent = transparent_draw_functions
         .read()
         .id::<DrawPolylineMaterial>();
+
+    // Bump the change tick so that Bevy is forced to rebuild the bin.
+    let next_change_tick = change_tick.get() + 1;
+    change_tick.set(next_change_tick);
 
     for (view_entity, view, visible_entities, msaa) in &views {
         let inverse_view_matrix = view.world_from_view.compute_matrix().inverse();
@@ -325,10 +329,12 @@ pub fn queue_material_polylines(
             let pipeline_id =
                 pipelines.specialize(&pipeline_cache, &material_pipeline, polyline_key);
 
+            let retained = RetainedViewEntity::new(view_entity.into(), None, 0);
+
             let (Some(opaque_phase), Some(alpha_mask_phase), Some(transparent_phase)) = (
-                opaque_phases.get_mut(&view_entity),
-                alpha_mask_phases.get_mut(&view_entity),
-                transparent_phases.get_mut(&view_entity),
+                opaque_phases.get_mut(&retained),
+                alpha_mask_phases.get_mut(&retained),
+                transparent_phases.get_mut(&retained),
             ) else {
                 continue;
             };
@@ -336,28 +342,39 @@ pub fn queue_material_polylines(
             match material.alpha_mode {
                 AlphaMode::Opaque => {
                     opaque_phase.add(
-                        Opaque3dBinKey {
-                            pipeline: pipeline_id,
+                        Opaque3dBatchSetKey {
                             draw_function: draw_opaque,
-                            // The draw command doesn't use a mesh handle so we don't need an `asset_id`
+                            pipeline: pipeline_id,
+                            material_bind_group_index: Some(2),
+                            vertex_slab: default(),
+                            index_slab: None,
+                            lightmap_slab: None,
+                        },
+                        Opaque3dBinKey {
                             asset_id: AssetId::<Mesh>::invalid().untyped(),
-                            material_bind_group_id: Some(material.bind_group.id()),
-                            lightmap_image: None,
                         },
                         (*visible_entity, *visible_main_entity),
+                        InputUniformIndex::default(),
                         BinnedRenderPhaseType::NonMesh,
+                        *change_tick,
                     );
                 }
                 AlphaMode::Mask(_) => {
                     alpha_mask_phase.add(
-                        OpaqueNoLightmap3dBinKey {
+                        OpaqueNoLightmap3dBatchSetKey {
                             draw_function: draw_alpha_mask,
                             pipeline: pipeline_id,
+                            material_bind_group_index: Some(2),
+                            vertex_slab: default(),
+                            index_slab: None,
+                        },
+                        OpaqueNoLightmap3dBinKey {
                             asset_id: AssetId::<Mesh>::invalid().untyped(),
-                            material_bind_group_id: Some(material.bind_group.id()),
                         },
                         (*visible_entity, *visible_main_entity),
+                        InputUniformIndex::default(),
                         BinnedRenderPhaseType::NonMesh,
+                        *change_tick,
                     );
                 }
                 AlphaMode::Blend
@@ -377,7 +394,8 @@ pub fn queue_material_polylines(
                         // camera. As such we can just use mesh_z as the distance
                         distance: polyline_z,
                         batch_range: 0..1,
-                        extra_index: PhaseItemExtraIndex::NONE,
+                        extra_index: PhaseItemExtraIndex::None,
+                        indexed: false,
                     });
                 }
             }
