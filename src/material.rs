@@ -23,11 +23,13 @@ use bevy::{
         render_phase::*,
         render_resource::{binding_types::uniform_buffer, *},
         renderer::{RenderDevice, RenderQueue},
-        view::{ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewUniformOffset},
+        view::{
+            ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewUniformOffset,
+            VisibilityClass,
+        },
         Render, RenderApp, RenderSet,
     },
 };
-use std::fmt::Debug;
 
 #[derive(Debug, Clone, Default, Component, ExtractComponent)]
 pub struct PolylineMaterialHandle(pub Handle<PolylineMaterial>);
@@ -159,8 +161,6 @@ impl RenderAsset for GpuPolylineMaterial {
     }
 }
 
-pub type WithPolyline = With<PolylineHandle>;
-
 /// Adds the necessary ECS resources and render logic to enable rendering entities using ['PolylineMaterial']
 #[derive(Default)]
 pub struct PolylineMaterialPlugin;
@@ -170,10 +170,6 @@ impl Plugin for PolylineMaterialPlugin {
         app.init_asset::<PolylineMaterial>()
             .add_plugins(ExtractComponentPlugin::<PolylineMaterialHandle>::default())
             .add_plugins(RenderAssetPlugin::<GpuPolylineMaterial>::default());
-        // .add_systems(
-        //     PostUpdate,
-        //     check_visibility.in_set(VisibilitySystems::CheckVisibility),
-        // );
     }
 
     fn finish(&self, app: &mut App) {
@@ -310,9 +306,13 @@ pub fn queue_material_polylines(
         let inverse_view_matrix = view.world_from_view.compute_matrix().inverse();
         let inverse_view_row_2 = inverse_view_matrix.row(2);
 
+        println!("kaas");
+
         let mut polyline_key = PolylinePipelineKey::from_msaa_samples(msaa.samples());
         polyline_key |= PolylinePipelineKey::from_hdr(view.hdr);
-        for (visible_entity, visible_main_entity) in visible_entities.get::<WithPolyline>() {
+        for (visible_entity, visible_main_entity) in visible_entities.iter::<PolylineHandle>() {
+            println!("lalala");
+
             let Ok((material_handle, polyline_uniform)) = material_meshes.get(*visible_entity)
             else {
                 continue;

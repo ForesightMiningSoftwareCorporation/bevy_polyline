@@ -16,7 +16,7 @@ use bevy::{
         render_resource::{binding_types::uniform_buffer, *},
         renderer::RenderDevice,
         sync_world::{RenderEntity, SyncToRenderWorld},
-        view::{ViewUniform, ViewUniforms},
+        view::{add_visibility_class, ViewUniform, ViewUniforms},
         Extract, Render, RenderApp, RenderSet,
     },
 };
@@ -70,6 +70,7 @@ pub struct Polyline {
 
 #[derive(Debug, Clone, Default, Component)]
 #[require(SyncToRenderWorld)]
+#[component(on_add = add_visibility_class::<PolylineHandle>)]
 pub struct PolylineHandle(pub Handle<Polyline>);
 
 impl RenderAsset for GpuPolyline {
