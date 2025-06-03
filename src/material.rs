@@ -306,12 +306,12 @@ pub fn queue_material_polylines(
         let inverse_view_matrix = view.world_from_view.compute_matrix().inverse();
         let inverse_view_row_2 = inverse_view_matrix.row(2);
 
-        println!("kaas");
+        println!("iter views");
 
         let mut polyline_key = PolylinePipelineKey::from_msaa_samples(msaa.samples());
         polyline_key |= PolylinePipelineKey::from_hdr(view.hdr);
         for (visible_entity, visible_main_entity) in visible_entities.iter::<PolylineHandle>() {
-            println!("lalala");
+            println!("iter visible entities");
 
             let Ok((material_handle, polyline_uniform)) = material_meshes.get(*visible_entity)
             else {
