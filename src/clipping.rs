@@ -1,14 +1,12 @@
-use bevy::{
-    prelude::*,
-    render::{
-        extract_resource::{ExtractResource, ExtractResourcePlugin},
-        primitives::HalfSpace,
-        render_resource::{
-            BindGroup, BindGroupEntries, Buffer, BufferInitDescriptor, BufferUsages,
-        },
-        renderer::RenderDevice,
-        Render, RenderApp, RenderSet,
-    },
+use bevy_app::{App, Plugin};
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::prelude::*;
+use bevy_render::{
+    extract_resource::{ExtractResource, ExtractResourcePlugin},
+    primitives::HalfSpace,
+    render_resource::{BindGroup, BindGroupEntries, Buffer, BufferInitDescriptor, BufferUsages},
+    renderer::RenderDevice,
+    Render, RenderApp, RenderSet,
 };
 use bytemuck::{Pod, Zeroable};
 

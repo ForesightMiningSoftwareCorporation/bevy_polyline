@@ -1,25 +1,29 @@
 use crate::material::PolylineMaterialHandle;
-use bevy::{
-    ecs::{
-        query::ROQueryItem,
-        system::{
-            lifetimeless::{Read, SRes},
-            SystemParamItem,
-        },
-    },
+use bevy_app::{App, Plugin};
+use bevy_asset::{Asset, AssetApp, AssetId, Handle};
+use bevy_ecs::{
     prelude::*,
-    reflect::TypePath,
-    render::{
-        extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
-        render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
-        render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
-        render_resource::{binding_types::uniform_buffer, *},
-        renderer::RenderDevice,
-        sync_world::{RenderEntity, SyncToRenderWorld},
-        view::{self, ViewUniform, ViewUniforms, VisibilityClass},
-        Extract, Render, RenderApp, RenderSet,
+    query::ROQueryItem,
+    system::{
+        lifetimeless::{Read, SRes},
+        SystemParamItem,
     },
 };
+use bevy_image::BevyDefault;
+use bevy_math::{Mat4, Vec3};
+use bevy_reflect::TypePath;
+use bevy_render::{
+    extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
+    prelude::*,
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
+    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
+    render_resource::{binding_types::uniform_buffer, *},
+    renderer::RenderDevice,
+    sync_world::{RenderEntity, SyncToRenderWorld},
+    view::{self, ViewUniform, ViewUniforms, VisibilityClass},
+    Extract, Render, RenderApp, RenderSet,
+};
+use bevy_transform::components::{GlobalTransform, Transform};
 
 pub struct PolylineBasePlugin;
 
@@ -81,7 +85,7 @@ impl RenderAsset for GpuPolyline {
     fn prepare_asset(
         polyline: Self::SourceAsset,
         _: AssetId<Self::SourceAsset>,
-        render_device: &mut bevy::ecs::system::SystemParamItem<Self::Param>,
+        render_device: &mut bevy_ecs::system::SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let vertex_buffer_data = bytemuck::cast_slice(polyline.vertices.as_slice());
         let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
@@ -204,7 +208,7 @@ impl SpecializedRenderPipeline for PolylinePipeline {
         }
 
         let format = match key.contains(PolylinePipelineKey::HDR) {
-            true => bevy::render::view::ViewTarget::TEXTURE_FORMAT_HDR,
+            true => bevy_render::view::ViewTarget::TEXTURE_FORMAT_HDR,
             false => TextureFormat::bevy_default(),
         };
 
@@ -347,7 +351,7 @@ pub fn prepare_polyline_view_bind_groups(
     render_device: Res<RenderDevice>,
     polyline_pipeline: Res<PolylinePipeline>,
     view_uniforms: Res<ViewUniforms>,
-    views: Query<Entity, With<bevy::render::view::ExtractedView>>,
+    views: Query<Entity, With<bevy_render::view::ExtractedView>>,
 ) {
     for entity in views.iter() {
         let view_bind_group = render_device.create_bind_group(

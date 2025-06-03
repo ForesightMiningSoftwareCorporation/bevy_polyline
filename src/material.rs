@@ -5,30 +5,33 @@ use crate::{
         PolylineViewBindGroup, SetPolylineBindGroup,
     },
 };
-
-use bevy::{
-    core_pipeline::{
-        core_3d::{AlphaMask3d, Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, Transparent3d},
-        prepass::{OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey},
-    },
-    ecs::{
-        component::Tick,
-        query::ROQueryItem,
-        system::{
-            lifetimeless::{Read, SRes},
-            SystemParamItem,
-        },
-    },
+use bevy_app::prelude::*;
+use bevy_asset::prelude::*;
+use bevy_color::prelude::*;
+use bevy_core_pipeline::{
+    core_3d::{AlphaMask3d, Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, Transparent3d},
+    prepass::{OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey},
+};
+use bevy_ecs::{
+    component::Tick,
     prelude::*,
-    render::{
-        extract_component::{ExtractComponent, ExtractComponentPlugin},
-        render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
-        render_phase::*,
-        render_resource::{binding_types::uniform_buffer, *},
-        renderer::{RenderDevice, RenderQueue},
-        view::{ExtractedView, RenderVisibleEntities, ViewUniformOffset},
-        Render, RenderApp, RenderSet,
+    query::ROQueryItem,
+    system::{
+        lifetimeless::{Read, SRes},
+        SystemParamItem,
     },
+};
+use bevy_math::Vec4;
+use bevy_reflect::prelude::*;
+use bevy_render::{
+    extract_component::{ExtractComponent, ExtractComponentPlugin},
+    mesh::Mesh,
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
+    render_phase::*,
+    render_resource::{binding_types::uniform_buffer, *},
+    renderer::{RenderDevice, RenderQueue},
+    view::{ExtractedView, Msaa, RenderVisibleEntities, ViewUniformOffset},
+    Render, RenderApp, RenderSet,
 };
 use std::fmt::Debug;
 
@@ -135,7 +138,7 @@ impl RenderAsset for GpuPolylineMaterial {
     fn prepare_asset(
         polyline_material: Self::SourceAsset,
         _: AssetId<Self::SourceAsset>,
-        (device, queue, polyline_pipeline): &mut bevy::ecs::system::SystemParamItem<Self::Param>,
+        (device, queue, polyline_pipeline): &mut bevy_ecs::system::SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let value = PolylineMaterialUniform {
             width: polyline_material.width,
@@ -396,7 +399,7 @@ pub fn queue_material_polylines(
                             draw_function: draw_opaque,
                             material_bind_group_index: None,
                             lightmap_slab: None,
-                            vertex_slab: default(),
+                            vertex_slab: Default::default(),
                             index_slab: None,
                         },
                         Opaque3dBinKey {
@@ -415,7 +418,7 @@ pub fn queue_material_polylines(
                             draw_function: draw_alpha_mask,
                             pipeline: pipeline_id,
                             material_bind_group_index: None,
-                            vertex_slab: default(),
+                            vertex_slab: Default::default(),
                             index_slab: None,
                         },
                         OpaqueNoLightmap3dBinKey {
