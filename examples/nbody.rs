@@ -30,7 +30,7 @@ fn main() {
             Update,
             ((nbody_system, update_trails).chain(), rotator_system),
         )
-        .add_plugins(FrameTimeDiagnosticsPlugin)
+        .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(LogDiagnosticsPlugin::default())
         .run();
 }

@@ -42,7 +42,7 @@ fn rotate_plane(time: Res<Time>, mut animated: Query<(&mut Transform, &Rotating)
 }
 
 fn move_camera(input: Res<ButtonInput<KeyCode>>, mut camera: Query<&mut Transform, With<Camera>>) {
-    if let Ok(mut camera_transform) = camera.get_single_mut() {
+    if let Ok(mut camera_transform) = camera.single_mut() {
         let trans = &mut camera_transform.translation;
         let go_forward = input.any_pressed([KeyCode::ArrowUp, KeyCode::KeyI, KeyCode::KeyW]);
         let go_backward = input.any_pressed([KeyCode::ArrowDown, KeyCode::KeyK, KeyCode::KeyS]);
