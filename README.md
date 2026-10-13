@@ -47,6 +47,7 @@ We intend to track the `main` branch of Bevy. PRs supporting this are welcome!
 
 | bevy | bevy_polyline |
 | ---- | ------------- |
+| 0.20 | 0.16          |
 | 0.19 | 0.15          |
 | 0.18 | 0.14          |
 | 0.17 | 0.13          |

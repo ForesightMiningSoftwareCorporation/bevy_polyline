@@ -1,4 +1,4 @@
-#import bevy_render::view::View
+import bevy_render::view::View;
 
 @group(0) @binding(0)
 var<uniform> view: View;
@@ -62,14 +62,14 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     var line_width = material.width;
     var color = material.color;
 
-    #ifdef POLYLINE_PERSPECTIVE
+    @if(POLYLINE_PERSPECTIVE) {
         line_width /= clip.w;
         // Line thinness fade from https://acegikmo.com/shapes/docs/#anti-aliasing
         if (line_width > 0.0 && line_width < 1.0) {
             color.a *= line_width;
             line_width = 1.0;
         }
-    #endif
+    }
 
     let pt_offset = line_width * (position.x * x_basis + position.y * y_basis);
     let pt0 = screen0 + pt_offset;

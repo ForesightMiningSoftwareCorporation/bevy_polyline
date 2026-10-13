@@ -1,5 +1,6 @@
 use crate::material::PolylineMaterialHandle;
 use bevy::{
+    asset::load_embedded_asset,
     camera::{self, visibility::VisibilityClass},
     ecs::{
         query::{QueryItem, ROQueryItem},
@@ -47,7 +48,10 @@ impl Plugin for PolylineRenderPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        app.sub_app_mut(RenderApp)
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+        render_app
             .init_resource::<PendingPolylineQueues>()
             .init_resource::<PolylinePipeline>()
             .add_systems(ExtractSchedule, extract_polylines)
@@ -114,7 +118,7 @@ pub struct PolylineUniform {
     pub transform: Mat4,
 }
 
-impl SyncComponent for PolylineUniform {
+impl SyncComponent<RenderApp> for PolylineUniform {
     type Target = Self;
 }
 
@@ -125,7 +129,7 @@ pub struct GpuPolyline {
     pub vertex_count: u32,
 }
 
-impl ExtractComponent for PolylineUniform {
+impl ExtractComponent<RenderApp> for PolylineUniform {
     type QueryData = (
         &'static GlobalTransform,
         &'static InheritedVisibility,
@@ -184,7 +188,7 @@ pub struct PolylinePipeline {
 }
 
 impl FromWorld for PolylinePipeline {
-    fn from_world(_: &mut World) -> Self {
+    fn from_world(world: &mut World) -> Self {
         let view_layout = BindGroupLayoutDescriptor::new(
             "polyline_view_layout",
             &BindGroupLayoutEntries::single(
@@ -204,7 +208,7 @@ impl FromWorld for PolylinePipeline {
         PolylinePipeline {
             view_layout,
             polyline_layout,
-            shader: crate::SHADER_HANDLE,
+            shader: load_embedded_asset!(world, "shaders/polyline.wesl"),
         }
     }
 }
@@ -259,6 +263,7 @@ impl SpecializedRenderPipeline for PolylinePipeline {
                     vertex_layout.attributes[0].shader_location = 1;
                     vertex_layout
                 }],
+                ..default()
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
@@ -269,6 +274,7 @@ impl SpecializedRenderPipeline for PolylinePipeline {
                     blend,
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
             layout: vec![], // This is set in `PolylineMaterialPipeline::specialize()`
             primitive: PrimitiveState {

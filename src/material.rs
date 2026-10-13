@@ -26,6 +26,7 @@ use bevy::{
         render_phase::*,
         render_resource::{binding_types::uniform_buffer, *},
         renderer::{RenderDevice, RenderQueue},
+        sync_world::MainEntityHashSet,
         view::{ExtractedView, RenderVisibleEntities, ViewUniformOffset},
         Render, RenderApp, RenderSystems,
     },
@@ -33,6 +34,7 @@ use bevy::{
 use std::fmt::Debug;
 
 #[derive(Debug, Clone, Default, Component, ExtractComponent)]
+#[extract_app(RenderApp)]
 pub struct PolylineMaterialHandle(pub Handle<PolylineMaterial>);
 
 #[derive(Asset, Debug, PartialEq, Clone, Copy, TypePath)]
@@ -297,6 +299,7 @@ pub fn queue_material_polylines(
     mut opaque_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     mut alpha_mask_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transparent_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
+    mut mesh_instances_queued_this_iteration_scratch_space: Local<MainEntityHashSet>,
 ) {
     let draw_opaque = opaque_draw_functions.read().id::<DrawPolylineMaterial>();
     let draw_alpha_mask = alpha_mask_draw_functions
@@ -338,6 +341,7 @@ pub fn queue_material_polylines(
             view.retained_view_entity,
             polyline_visible_entities,
             &pending.prev_frame,
+            &mut mesh_instances_queued_this_iteration_scratch_space,
         ) {
             let Ok((material_handle, polyline_uniform)) = material_meshes.get(*visible_entity)
             else {
@@ -377,7 +381,7 @@ pub fn queue_material_polylines(
                         },
                         Opaque3dBinKey {
                             // The draw command doesn't use a mesh handle so we don't need an `asset_id`
-                            asset_id: AssetId::<Mesh>::invalid().untyped(),
+                            asset_id: AssetId::<Mesh>::default().untyped(),
                         },
                         (*visible_entity, *visible_main_entity),
                         InputUniformIndex::default(),
@@ -393,7 +397,7 @@ pub fn queue_material_polylines(
                             slabs: default(),
                         },
                         OpaqueNoLightmap3dBinKey {
-                            asset_id: AssetId::<Mesh>::invalid().untyped(),
+                            asset_id: AssetId::<Mesh>::default().untyped(),
                         },
                         (*visible_entity, *visible_main_entity),
                         InputUniformIndex::default(),
